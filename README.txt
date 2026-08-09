@@ -337,3 +337,11 @@ V3.3 ENGINEERING DIGITAL TEST FORMS
 - Installation/commissioning and breaker cleaning/rebuild templates included.
 - Test measurements are stored with the job record for future reports/certificates.
 - Production version should enforce required measurements based on company-approved procedures, support attachments/photos, electronic signatures, certificate generation and locked test records.
+
+
+V3.4 AUTOMATIC ENGINEERING E-NUMBERS
+- Engineering jobs now automatically receive sequential E-numbers.
+- Format: E-0001, E-0002, E-0003, etc.
+- Users no longer type the engineering job number when creating an Engineering Field Service job.
+- The E-number is used as the central reference for engineering time slips, test/certification records, reports and billing.
+- Existing non-E engineering job numbers are preserved; newly created engineering jobs use the next available E-number.

@@ -977,11 +977,18 @@ function openEngineeringJob(id){
  <div class="form-actions"><button class="secondary" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();setTimeout(()=>openTestRecordBuilder('${j.jobNumber}'),50)">+ Add Test / Certification</button></div>
  `,()=>{});
 }
+function nextEngineeringNumber(){
+ ensureEngineeringData();
+ const nums=db.engineeringJobs.map(x=>String(x.jobNumber||"").match(/^E-(\d+)$/i)).filter(Boolean).map(m=>Number(m[1]));
+ const next=(nums.length?Math.max(...nums):0)+1;
+ return `E-${String(next).padStart(4,"0")}`;
+}
 function openEngineeringJobBuilder(){
  ensureEngineeringData();
+ const suggested=nextEngineeringNumber();
  openModal("New Engineering Field Job",`
  <div class="form-grid">
-  <div class="field"><label>Job Number <span class="req">*</span></label><input id="ej_job" placeholder="E-2001"></div>
+  <div class="field"><label>Engineering Job Number</label><input id="ej_job" value="${suggested}" readonly><div class="muted">Automatically assigned E-number</div></div>
   <div class="field"><label>Customer <span class="req">*</span></label><select id="ej_customer">${customerOptions()}</select></div>
   <div class="field"><label>Equipment Category</label><select id="ej_equipment"><option>Transformer</option><option>Switchgear</option><option>Drives</option><option>Recloser</option><option>Breaker</option><option>General Field Service</option></select></div>
   <div class="field"><label>Service Type</label><select id="ej_service"><option>Field Testing</option><option>Installation</option><option>Commissioning / Startup</option><option>Breaker Certification</option><option>Breaker Cleaning / Rebuild</option><option>Field Repair</option><option>Inspection</option><option>Other</option></select></div>
@@ -990,13 +997,14 @@ function openEngineeringJobBuilder(){
   <div class="field"><label>Equipment ID / Serial</label><input id="ej_serial"></div>
   <div class="field"><label>Notes</label><input id="ej_notes"></div>
  </div>
- <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveEngineeringJob()">Create Job</button></div>`,()=>{});
+ <div class="notice">Engineering jobs are automatically numbered <b>E-0001, E-0002, E-0003...</b>. The E-number becomes the primary engineering job reference for time, testing, reports and billing.</div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveEngineeringJob()">Create E-Job</button></div>`,()=>{});
 }
 function saveEngineeringJob(){
  ensureEngineeringData();
- const jobNumber=document.getElementById("ej_job").value.trim(),customer=document.getElementById("ej_customer").value,equipmentCategory=document.getElementById("ej_equipment").value,serviceType=document.getElementById("ej_service").value,site=document.getElementById("ej_site").value.trim(),scheduledDate=document.getElementById("ej_date").value,serial=document.getElementById("ej_serial").value.trim(),notes=document.getElementById("ej_notes").value.trim();
- if(!jobNumber||!customer){alert("Job number and customer are required.");return}
- if(db.engineeringJobs.some(x=>x.jobNumber.toLowerCase()===jobNumber.toLowerCase())){alert("That engineering job number already exists.");return}
+ const customer=document.getElementById("ej_customer").value,equipmentCategory=document.getElementById("ej_equipment").value,serviceType=document.getElementById("ej_service").value,site=document.getElementById("ej_site").value.trim(),scheduledDate=document.getElementById("ej_date").value,serial=document.getElementById("ej_serial").value.trim(),notes=document.getElementById("ej_notes").value.trim();
+ if(!customer){alert("Customer is required.");return}
+ const jobNumber=nextEngineeringNumber();
  db.engineeringJobs.push({id:"ENG-"+(db.engineeringJobs.length+1),jobNumber,customer,equipmentCategory,serviceType,site,scheduledDate,serial,notes,status:"Scheduled",createdAt:new Date().toISOString()});
  db.jobs=db.jobs||[]; if(!db.jobs.some(x=>x.id===jobNumber)) db.jobs.push({id:jobNumber,customer,type:"Engineering Field Service",stage:"Scheduled",notes});
  logAudit("Created engineering field job "+jobNumber);save();closeModal();render();
