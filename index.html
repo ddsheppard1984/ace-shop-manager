@@ -25,9 +25,11 @@
       <button class="nav" data-view="quotes">Quotes</button>
       <button class="nav" data-view="sales">💳 Sales / POS & Invoices</button>
       <button class="nav" data-view="billing">💰 Billing / A/R</button>
+      <button class="nav" data-view="accounting">📊 Accounting</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
       <button class="nav" data-view="fleet">🚛 Fleet / IFTA</button>
       <button class="nav" data-view="labor">⏱️ Technician Time</button>
+      <button class="nav" data-view="timeslips">🕒 Time Slips</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
@@ -154,6 +156,29 @@
         <div id="billingSummary"></div>
         <div id="billingAlerts"></div>
         <div id="billingTable"></div>
+      </div>
+    </section>
+
+    <section id="accounting" class="view">
+      <div class="toolbar">
+        <button class="primary" id="newJournal">+ Journal Entry</button>
+        <button class="secondary" id="exportAccounting">⬇ Export Accounting Data</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>📊 Accounting</h2><span class="muted">General ledger, journal entries and accounting exports</span></div>
+        <div id="accountingSummary"></div>
+        <div id="accountingTable"></div>
+      </div>
+    </section>
+
+    <section id="timeslips" class="view">
+      <div class="toolbar">
+        <button class="primary" id="newTimeSlip">+ New Time Slip</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>🕒 Time Slips</h2><span class="muted">Common labor codes for all departments</span></div>
+        <div id="timeSlipSummary"></div>
+        <div id="timeSlipTable"></div>
       </div>
     </section>
 

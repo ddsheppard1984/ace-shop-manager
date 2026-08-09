@@ -271,3 +271,13 @@ V2.6 BILLING / ACCOUNTS RECEIVABLE
 - Added prototype payment-entry function that reduces invoice balance and records payment history.
 - Invoice due date remains editable on invoice creation; if omitted, prototype defaults to 30 days from invoice date.
 - Production version should add configurable customer-specific terms, statements, payment processor/accounting integration, collections workflow, permissions and immutable audit history.
+
+
+V2.7 ACCOUNTING + TIME SLIPS
+- Added dedicated Accounting section with chart of accounts, journal-entry prototype and accounting export bundle.
+- Added Time Slips section with standardized codes usable across departments.
+- Default time codes: TRAVEL, SHOP, JOB-MISC, CLEAN, TEARDOWN, BUILD, INSPECT, REPAIR, TEST, QC, PARTS, ADMIN, TRAIN, OTHER.
+- Time slips record employee, date, code, hours, optional job/motor number, billable status and notes.
+- Accounting export currently produces a structured JSON bundle containing customers, invoices, payments, sales, journal entries, time slips, chart of accounts and inventory/new motors.
+- The production version should add dedicated CSV/Excel mappings and API/connectors for specific accounting platforms (e.g. QuickBooks, Xero, Sage, etc.) rather than claiming one universal import format.
+- Prototype intentionally keeps accounting controls simple; production needs balanced multi-line double-entry journals, locked periods, reconciliation, audit history, tax configuration and accountant review.

@@ -72,3 +72,6 @@
 
 .billing-alert{margin:10px 0;padding:12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:9px}.billing-overdue{background:#fff7f7}.billing-grid{grid-template-columns:1.1fr 1.3fr .9fr .9fr .9fr .9fr .9fr 1fr .7fr}.small-btn{padding:5px 8px;font-size:12px}
 @media(max-width:900px){.billing-grid{min-width:950px}.billing-grid~.row{min-width:950px}}
+
+.timeslip-grid{grid-template-columns:.9fr 1.1fr 1.3fr 1.1fr .7fr .7fr 1.5fr}.journal-grid{grid-template-columns:.9fr 1.4fr 1.8fr .9fr .9fr}
+@media(max-width:900px){.timeslip-grid,.journal-grid{min-width:900px}}

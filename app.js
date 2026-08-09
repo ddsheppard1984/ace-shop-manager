@@ -56,6 +56,8 @@ function render(){
  renderCustomers();renderJobs();renderInventory();renderNewMotors();
  renderSales();
  renderBilling();
+ renderTimeSlips();
+ renderAccounting();
  renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
@@ -720,6 +722,109 @@ function recordInvoicePayment(id){
  logAudit(`Recorded payment on ${inv.number}`);save();render();
 }
 
+
+const DEFAULT_TIME_CODES=[
+ {code:"TRAVEL",name:"Travel",billable:false},
+ {code:"SHOP",name:"Shop",billable:true},
+ {code:"JOB-MISC",name:"Job Misc",billable:true},
+ {code:"CLEAN",name:"Cleaning",billable:true},
+ {code:"TEARDOWN",name:"Tear Down",billable:true},
+ {code:"BUILD",name:"Build / Assembly",billable:true},
+ {code:"INSPECT",name:"Inspection",billable:true},
+ {code:"REPAIR",name:"Repair",billable:true},
+ {code:"TEST",name:"Testing",billable:true},
+ {code:"QC",name:"Final QC",billable:true},
+ {code:"PARTS",name:"Parts / Material",billable:true},
+ {code:"ADMIN",name:"Administrative",billable:false},
+ {code:"TRAIN",name:"Training",billable:false},
+ {code:"OTHER",name:"Other",billable:false}
+];
+function ensureAccountingData(){
+ db.journalEntries=db.journalEntries||[];
+ db.timeSlips=db.timeSlips||[];
+ db.timeCodes=db.timeCodes||DEFAULT_TIME_CODES;
+ db.chartOfAccounts=db.chartOfAccounts||[
+  {code:"1000",name:"Cash",type:"Asset"},{code:"1100",name:"Accounts Receivable",type:"Asset"},
+  {code:"1200",name:"Inventory",type:"Asset"},{code:"2000",name:"Accounts Payable",type:"Liability"},
+  {code:"3000",name:"Owner's Equity",type:"Equity"},{code:"4000",name:"Sales Revenue",type:"Income"},
+  {code:"5000",name:"Cost of Goods Sold",type:"Expense"},{code:"6000",name:"Labor Expense",type:"Expense"},
+  {code:"7000",name:"Operating Expense",type:"Expense"}
+ ];
+}
+function renderTimeSlips(){
+ ensureAccountingData();const sum=document.getElementById("timeSlipSummary"),table=document.getElementById("timeSlipTable");if(!sum)return;
+ const mins=db.timeSlips.reduce((a,x)=>a+Number(x.minutes||0),0),bill=db.timeSlips.filter(x=>x.billable).reduce((a,x)=>a+Number(x.minutes||0),0);
+ sum.innerHTML=`<div class="fleet-cards"><div><b>${(mins/60).toFixed(2)}</b><span>Total Hours</span></div><div><b>${(bill/60).toFixed(2)}</b><span>Billable Hours</span></div><div><b>${db.timeSlips.length}</b><span>Time Slips</span></div></div>`;
+ table.innerHTML=`<div class="row head timeslip-grid"><div>Date</div><div>Employee</div><div>Code</div><div>Job / Motor</div><div>Hours</div><div>Billable</div><div>Notes</div></div>`+
+ db.timeSlips.slice().reverse().map(x=>`<div class="row timeslip-grid"><div>${esc(x.date)}</div><div>${esc(x.employee)}</div><div><b>${esc(x.code)}</b><div class="muted">${esc(x.codeName)}</div></div><div>${esc(x.jobId||"—")}</div><div>${(Number(x.minutes||0)/60).toFixed(2)}</div><div>${x.billable?"Yes":"No"}</div><div>${esc(x.notes||"")}</div></div>`).join("")||empty("No time slips yet.");
+}
+function openTimeSlip(){
+ ensureAccountingData();
+ openModal("New Time Slip",`
+ <div class="form-grid">
+  <div class="field"><label>Employee <span class="req">*</span></label><input id="ts_employee"></div>
+  <div class="field"><label>Date <span class="req">*</span></label><input id="ts_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+  <div class="field"><label>Time Code <span class="req">*</span></label><select id="ts_code">${db.timeCodes.map(x=>`<option value="${esc(x.code)}">${esc(x.code)} — ${esc(x.name)}${x.billable?" (Billable)":""}</option>`).join("")}</select></div>
+  <div class="field"><label>Hours <span class="req">*</span></label><input id="ts_hours" type="number" min="0" step="0.01"></div>
+  <div class="field"><label>Job / Motor #</label><select id="ts_job"><option value="">Not job-specific</option>${(db.jobs||[]).map(j=>`<option value="${esc(j.id)}">${esc(j.id)} — ${esc(j.customer||"")}</option>`).join("")}</select></div>
+  <div class="field"><label>Notes</label><input id="ts_notes" placeholder="Optional"></div>
+ </div>
+ <div class="notice">Codes can be used consistently by technicians, drivers, engineering, machine shop, breaker shop and office staff.</div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveTimeSlip()">Save Time Slip</button></div>`,()=>{});
+}
+function saveTimeSlip(){
+ ensureAccountingData();
+ const employee=document.getElementById("ts_employee").value.trim(),date=document.getElementById("ts_date").value,code=document.getElementById("ts_code").value,hours=Number(document.getElementById("ts_hours").value||0),jobId=document.getElementById("ts_job").value,notes=document.getElementById("ts_notes").value.trim(),tc=db.timeCodes.find(x=>x.code===code);
+ if(!employee||!date||hours<=0||!tc){alert("Enter employee, date, time code and a valid number of hours.");return}
+ db.timeSlips.push({id:"TS-"+(db.timeSlips.length+1),employee,date,code,codeName:tc.name,billable:!!tc.billable,minutes:hours*60,jobId,notes,createdAt:new Date().toISOString()});
+ logAudit("Added time slip");save();closeModal();render();
+}
+function renderAccounting(){
+ ensureAccountingData();const sum=document.getElementById("accountingSummary"),table=document.getElementById("accountingTable");if(!sum)return;
+ const debit=db.journalEntries.reduce((a,x)=>a+Number(x.debit||0),0),credit=db.journalEntries.reduce((a,x)=>a+Number(x.credit||0),0);
+ sum.innerHTML=`<div class="fleet-cards"><div><b>${money(debit)}</b><span>Total Debits</span></div><div><b>${money(credit)}</b><span>Total Credits</span></div><div><b>${db.journalEntries.length}</b><span>Journal Entries</span></div></div>
+ <div class="notice">Accounting records are designed around standard double-entry structure. Use the export tools to move data into the company's accounting platform during the prototype phase.</div>`;
+ table.innerHTML=`<div class="row head journal-grid"><div>Date</div><div>Account</div><div>Description</div><div>Debit</div><div>Credit</div></div>`+
+ db.journalEntries.slice().reverse().map(x=>`<div class="row journal-grid"><div>${esc(x.date)}</div><div>${esc(x.accountCode)} — ${esc(x.accountName)}</div><div>${esc(x.description||"")}</div><div>${x.debit?money(x.debit):"—"}</div><div>${x.credit?money(x.credit):"—"}</div></div>`).join("")||empty("No journal entries yet.");
+}
+function openJournalEntry(){
+ ensureAccountingData();
+ openModal("New Journal Entry",`
+ <div class="form-grid">
+  <div class="field"><label>Date</label><input id="je_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+  <div class="field"><label>Account</label><select id="je_account">${db.chartOfAccounts.map(a=>`<option value="${esc(a.code)}">${esc(a.code)} — ${esc(a.name)} (${esc(a.type)})</option>`).join("")}</select></div>
+  <div class="field"><label>Description</label><input id="je_desc"></div>
+  <div class="field"><label>Debit</label><input id="je_debit" type="number" min="0" step="0.01"></div>
+  <div class="field"><label>Credit</label><input id="je_credit" type="number" min="0" step="0.01"></div>
+ </div>
+ <div class="notice">Prototype journal entry screen. Production accounting will require balanced multi-line journal transactions and locked audit history.</div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveJournalEntry()">Save</button></div>`,()=>{});
+}
+function saveJournalEntry(){
+ ensureAccountingData();const date=document.getElementById("je_date").value,code=document.getElementById("je_account").value,desc=document.getElementById("je_desc").value.trim(),debit=Number(document.getElementById("je_debit").value||0),credit=Number(document.getElementById("je_credit").value||0),acct=db.chartOfAccounts.find(a=>a.code===code);
+ if(!date||!acct||debit<0||credit<0||((debit>0)&&(credit>0))||debit===credit){alert("Enter a date and either a debit OR a credit amount.");return}
+ db.journalEntries.push({id:"JE-"+(db.journalEntries.length+1),date,accountCode:acct.code,accountName:acct.name,description,debit,credit,createdAt:new Date().toISOString()});
+ logAudit("Added journal entry");save();closeModal();render();
+}
+function exportAccountingData(){
+ ensureAccountingData();
+ const bundle={
+  generatedAt:new Date().toISOString(),
+  format:"ACE Shop Manager Accounting Export v1",
+  customers:db.customers||[],
+  invoices:db.invoices||[],
+  payments:db.payments||[],
+  sales:db.sales||[],
+  journalEntries:db.journalEntries||[],
+  timeSlips:db.timeSlips||[],
+  chartOfAccounts:db.chartOfAccounts||[],
+  inventory:db.inventory||[],
+  newMotors:db.newMotors||[]
+ };
+ const blob=new Blob([JSON.stringify(bundle,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ace-electric-accounting-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);
+ alert("Accounting data exported. The production version can add dedicated import/export mappings for specific accounting platforms.");
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
@@ -1203,5 +1308,9 @@ document.getElementById("newSale")?.addEventListener("click",openSaleBuilder);
 document.getElementById("newInvoice")?.addEventListener("click",openInvoiceBuilder);
 
 document.getElementById("refreshBilling")?.addEventListener("click",renderBilling);
+
+document.getElementById("newTimeSlip")?.addEventListener("click",openTimeSlip);
+document.getElementById("newJournal")?.addEventListener("click",openJournalEntry);
+document.getElementById("exportAccounting")?.addEventListener("click",exportAccountingData);
 
 render();
