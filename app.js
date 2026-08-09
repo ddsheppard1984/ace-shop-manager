@@ -200,35 +200,66 @@ function renderDeliveries(){
 function openDelivery(id){
  const d=db.deliveries.find(x=>x.id===id); if(!d)return;
  d.photos=d.photos||[]; d.jobs=d.jobs||[];
- const jobs=db.jobs;
- const selectedJobs=jobs.map(j=>`<label class="job-select"><input type="checkbox" class="delivery-job" value="${esc(j.id)}" ${d.jobs.includes(j.id)?"checked":""}> <b>${esc(j.id)}</b> — ${esc(j.customer)} — ${esc(j.type)} ${j.hp?esc(j.hp)+" HP":""}</label>`).join("");
- const photos=(d.photos||[]).map(p=>`<div class="photo"><img src="${p.data}"><small>${esc(p.kind)} · ${esc(p.name||"photo")}</small></div>`).join("")||empty("No delivery/pickup photos yet.");
- openModal((d.type==="Pickup"?"Pickup":"Delivery")+" "+d.id,`
+ const isPickup=d.type==="Pickup";
+ const selectedJobs=db.jobs.map(j=>`<label class="job-select"><input type="checkbox" class="delivery-job" value="${esc(j.id)}" ${d.jobs.includes(j.id)?"checked":""}> <b>${esc(j.id)}</b> — ${esc(j.customer)} — ${esc(j.type)} ${j.hp?esc(j.hp)+" HP":""}</label>`).join("");
+ const photos=(d.photos||[]).map(p=>`<div class="photo"><img src="${p.data}"><small>${esc(p.kind)} · ${esc(p.name||"photo")}</small></div>`).join("")||empty("No photos attached.");
+ const m=d.motor||{};
+ openModal((isPickup?"Pickup":"Delivery")+" "+d.id,`
   <div class="job-summary"><div><b>${esc(d.customer)}</b><div class="muted">${esc(d.type)} · ${esc(d.date)} · ${esc(d.driver)}</div></div>${badge(d.status)}</div>
-  <div class="notice"><b>Driver workflow:</b> record the condition, attach required photos, capture the customer's acknowledgment/signature, then complete the ${d.type.toLowerCase()}.</div>
-  <div class="delivery-section"><h3>1. Jobs / Motors</h3><div class="job-selects">${selectedJobs}</div></div>
-  <div class="delivery-section"><h3>2. Pickup Condition Report</h3>
+  <div class="notice"><b>${isPickup?"Pickup":"Delivery"} workflow:</b> ${isPickup?"For a normal pickup, photos and customer signature are optional. If damage is reported, a damage description and photo are required.":"Customer receipt confirmation and signature are required for return delivery. Photos are optional unless damage/problem is reported."}</div>
+
+  <div class="delivery-section"><h3>1. Job / Motor</h3><div class="job-selects">${selectedJobs}</div></div>
+
+  <div class="delivery-section"><h3>2. Motor Description</h3>
+   <div class="form-grid">
+    <div class="field full"><label>Motor / Equipment Description <span class="req">*</span></label><textarea id="motorDescription" rows="2" placeholder="Example: Baldor 250 HP AC 3 Phase motor">${esc(d.motorDescription||"")}</textarea></div>
+    ${motorField("Horsepower","hp",m.hp)}
+    ${motorField("AC / DC","acdc",m.acdc)}
+    ${motorField("Phase","phase",m.phase)}
+    ${motorField("Voltage","voltage",m.voltage)}
+    ${motorField("Manufacturer","manufacturer",m.manufacturer)}
+    ${motorField("Model","model",m.model)}
+    ${motorField("Serial Number","serial",m.serial)}
+   </div>
+  </div>
+
+  <div class="delivery-section"><h3>3. Condition</h3>
+    <div class="field"><label>Overall Condition</label>
+      <select id="condition">
+       <option ${d.condition==="Good"?"selected":""}>Good</option>
+       <option ${d.condition==="Damaged — Documented"?"selected":""}>Damaged — Documented</option>
+       <option ${d.condition==="Significant Damage"?"selected":""}>Significant Damage</option>
+      </select>
+    </div>
     <div class="condition-grid">
       ${["Motor appears undamaged","Shaft condition appears normal","Fan / guard present","Terminal / conduit box present","Nameplate present / readable","Mounting feet / flange condition","Lifting points condition","Covers / accessories present","Visible corrosion","Visible oil / grease leakage","Physical damage","Other"].map((x,i)=>`<label><input type="checkbox" class="cond" data-i="${i}" ${(d.conditionChecks||[])[i]?"checked":""}> ${x}</label>`).join("")}
     </div>
-    <div class="field"><label>Overall Condition</label><select id="condition"><option ${d.condition==="Good"?"selected":""}>Good</option><option ${d.condition==="Damaged — Documented"?"selected":""}>Damaged — Documented</option><option ${d.condition==="Significant Damage"?"selected":""}>Significant Damage</option></select></div>
-    <div class="field"><label>Driver Notes</label><textarea id="deliveryNotes" rows="3">${esc(d.notes||"")}</textarea></div>
+    <div class="field"><label>${isPickup?"Driver Pickup Notes":"Delivery Notes"}</label><textarea id="deliveryNotes" rows="3">${esc(d.notes||"")}</textarea></div>
+    <div class="field"><label>Damage Description ${d.condition==="Good"?"(optional)":"<span class='req'>* required when damaged</span>"}</label><textarea id="damageDescription" rows="3" placeholder="Describe dents, missing parts, broken covers, etc.">${esc(d.damageDescription||"")}</textarea></div>
   </div>
-  <div class="delivery-section"><h3>3. Required Photos</h3>
+
+  <div class="delivery-section"><h3>4. Photos — Optional Unless Damaged</h3>
     <div class="required-photos">
-      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Overall Motor')">📷 Overall Motor</button>
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Overall Motor')">📷 Add Photo</button>
       <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Nameplate')">📷 Nameplate</button>
-      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Shaft')">📷 Shaft</button>
-      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Connection Box')">📷 Connection Box</button>
       <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Damage / Other')">📷 Damage / Other</button>
     </div>
+    <div class="muted photo-rule">${isPickup?"Normal pickup: photos are optional. Damaged pickup: at least one photo required.":"Normal delivery: photos are optional. If delivery damage/problem is reported, at least one photo is required."}</div>
     <div class="photos">${photos}</div>
   </div>
-  <div class="delivery-section"><h3>4. Customer Acknowledgment</h3>
-    <div class="field"><label>Received / Released By</label><input id="receiverName" value="${esc(d.receiverName||"")}"></div>
+
+  ${isPickup?`
+  <div class="delivery-section"><h3>5. Customer Signature — Optional for Pickup</h3>
+    <div class="muted">A customer signature is not required to complete a pickup. You may capture one if the customer wants to acknowledge release of the equipment.</div>
+    <div class="field"><label>Released By (optional)</label><input id="receiverName" value="${esc(d.receiverName||"")}"></div>
     <div class="signature-wrap"><canvas id="sigCanvas" width="560" height="180"></canvas><div class="sig-actions"><button type="button" class="secondary" onclick="clearSignature()">Clear Signature</button></div></div>
-    <div class="muted">Customer signature is captured on the driver's phone/tablet. Date/time are recorded automatically when completed.</div>
-  </div>
+  </div>`:`
+  <div class="delivery-section"><h3>5. Customer Receipt</h3>
+    <div class="field"><label>Received By <span class="req">*</span></label><input id="receiverName" value="${esc(d.receiverName||"")}"></div>
+    <div class="signature-wrap"><canvas id="sigCanvas" width="560" height="180"></canvas><div class="sig-actions"><button type="button" class="secondary" onclick="clearSignature()">Clear Signature</button></div></div>
+    <div class="muted">Customer signature is required for return delivery.</div>
+  </div>`}
+
   <div class="form-actions">
     <button type="button" class="secondary" onclick="saveDelivery('${d.id}')">Save</button>
     <button type="button" class="primary" onclick="completeDelivery('${d.id}')">Complete ${esc(d.type)}</button>
@@ -237,6 +268,7 @@ function openDelivery(id){
  document.querySelectorAll(".delivery-job").forEach(c=>c.onchange=()=>{d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);save()});
  document.querySelectorAll(".cond").forEach(c=>c.onchange=()=>{d.conditionChecks=d.conditionChecks||[];d.conditionChecks[+c.dataset.i]=c.checked;save()});
 }
+
 let sigPad=null;
 function setupSignature(d){
  const c=document.getElementById("sigCanvas"); if(!c)return;
@@ -257,19 +289,32 @@ function addDeliveryPhoto(id,kind){
 function saveDelivery(id){
  const d=db.deliveries.find(x=>x.id===id);
  d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);
- d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value;d.receiverName=document.getElementById("receiverName").value;
+ d.motorDescription=document.getElementById("motorDescription").value;
+ d.motor={hp:document.querySelector('[name="hp"]')?.value||"",acdc:document.querySelector('[name="acdc"]')?.value||"",phase:document.querySelector('[name="phase"]')?.value||"",voltage:document.querySelector('[name="voltage"]')?.value||"",manufacturer:document.querySelector('[name="manufacturer"]')?.value||"",model:document.querySelector('[name="model"]')?.value||"",serial:document.querySelector('[name="serial"]')?.value||""};
+ d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value;d.damageDescription=document.getElementById("damageDescription").value;d.receiverName=document.getElementById("receiverName").value;
  if(sigPad)d.signature=sigPad.canvas.toDataURL("image/png");
  save();closeModal();render();
 }
 function completeDelivery(id){
- const d=db.deliveries.find(x=>x.id===id);
+ const d=db.deliveries.find(x=>x.id===id), isPickup=d.type==="Pickup";
  d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);
- d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value;d.receiverName=document.getElementById("receiverName").value;
+ d.motorDescription=document.getElementById("motorDescription").value.trim();
+ d.motor={hp:document.querySelector('[name="hp"]')?.value||"",acdc:document.querySelector('[name="acdc"]')?.value||"",phase:document.querySelector('[name="phase"]')?.value||"",voltage:document.querySelector('[name="voltage"]')?.value||"",manufacturer:document.querySelector('[name="manufacturer"]')?.value||"",model:document.querySelector('[name="model"]')?.value||"",serial:document.querySelector('[name="serial"]')?.value||""};
+ d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value.trim();d.damageDescription=document.getElementById("damageDescription").value.trim();d.receiverName=document.getElementById("receiverName").value.trim();
  if(!d.jobs.length){alert("Select at least one job/motor.");return}
- if(d.condition!=="Good" && !(d.photos||[]).length){alert("A damaged/significant condition requires at least one photo before completion.");return}
- if(!d.receiverName.trim()){alert("Enter the customer's name.");return}
- if(!sigPad || sigPad.canvas.toDataURL("image/png").length<5000){alert("Customer signature is required.");return}
- d.signature=sigPad.canvas.toDataURL("image/png");d.status=d.type==="Pickup"?"Picked Up":"Delivered";d.completedAt=new Date().toISOString();
+ if(!d.motorDescription){alert("Enter a description of the motor/equipment.");return}
+ if(d.condition!=="Good"){
+   if(!d.damageDescription){alert("Because the motor is marked damaged, enter a damage description.");return}
+   if(!(d.photos||[]).length){alert("Because the motor is marked damaged, add at least one photo.");return}
+ }
+ if(!isPickup){
+   if(!d.receiverName){alert("Enter the customer's receiving name.");return}
+   if(!sigPad || sigPad.canvas.toDataURL("image/png").length<5000){alert("Customer signature is required for return delivery.");return}
+   d.signature=sigPad.canvas.toDataURL("image/png");
+ } else if(sigPad && sigPad.canvas.toDataURL("image/png").length>=5000){
+   d.signature=sigPad.canvas.toDataURL("image/png");
+ }
+ d.status=isPickup?"Picked Up":"Delivered";d.completedAt=new Date().toISOString();
  save();closeModal();render();alert(d.status+" recorded successfully.");
 }
 function openModal(title,html,onSubmit){

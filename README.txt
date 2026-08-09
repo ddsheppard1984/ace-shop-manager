@@ -72,3 +72,12 @@ V0.4 MOTOR MASTER RECORD
 - Chain-of-custody summary and complete job photo gallery.
 - QR code is planned for the next iteration; the record structure is ready for a QR-linked motor ID.
 - Prototype data remains local to the browser. Production requires a secure database, authenticated users, audit logging, secure object storage, GPS and controlled access.
+
+
+V0.5 PICKUP / DELIVERY RULE UPDATE
+- Pickup no longer requires customer signature.
+- Pickup photos are optional when the condition is Good.
+- If pickup condition is marked damaged/significant, a damage description AND at least one photo are required.
+- Pickup requires a motor/equipment description and allows optional HP, AC/DC, phase, voltage, manufacturer, model and serial information.
+- Return delivery requires customer receiving name and signature.
+- Delivery photos are optional unless a damage/problem condition is reported.
