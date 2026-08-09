@@ -66,7 +66,8 @@ async function loadCoreFromSupabase(){
  db.inventory=(i.data||[]).map(x=>({part:x.part_number,desc:x.description,qty:Number(x.quantity||0),min:Number(x.minimum_quantity||0),cost:Number(x.unit_cost||0)}));
  db.quotes=(q.data||[]).map(x=>({id:x.quote_number,customer:x.customers?.company_name||"",job:"",amount:Number(x.total||0),status:x.status||"Draft"}));
  db.invoices=(inv.data||[]).map(x=>({id:x.invoice_number,customer:x.customers?.company_name||"",total:Number(x.total||0),balance:Number(x.balance_due||0),status:x.status||"Open",invoiceDate:x.invoice_date,dueDate:x.due_date}));
- localStorage.setItem(KEY,JSON.stringify(db)); render();
+ localStorage.setItem(KEY,JSON.stringify(db)); await loadRemoteEquipment();
+render();
 }
 async function signInSupabase(){
  if(!supabaseClient)throw new Error("Save a Supabase URL and anon key first.");
@@ -80,7 +81,16 @@ async function saveSupabaseSettings(){
  if(!url||!anonKey){alert("Enter both the local Supabase API URL and anon/publishable key.");return}
  saveSupabaseConfig({url,anonKey}); initSupabase(); await renderDatabasePanel();
 }
-async function renderDatabasePanel(){
+async 
+function jobEquipmentSummary(jobNumber){
+ const list=(db.equipment||[]).filter(e=>String(e.jobId)===String(jobNumber));
+ if(!list.length)return `<div class="empty-state">No equipment linked to this job yet.</div>`;
+ return `<div class="table-wrap"><table><thead><tr><th>Equipment #</th><th>Type</th><th>Manufacturer</th><th>Model</th><th>Serial</th><th>HP</th><th>Voltage</th></tr></thead><tbody>${
+   list.map(e=>`<tr><td>${esc(e.equipmentNumber)}</td><td>${esc(e.type)}</td><td>${esc(e.manufacturer)}</td><td>${esc(e.model)}</td><td>${esc(e.serial)}</td><td>${esc(e.hp)}</td><td>${esc(e.voltage)}</td></tr>`).join("")
+ }</tbody></table></div>`;
+}
+
+function renderDatabasePanel(){
  const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
  let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
  el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> Customers → Jobs → Quotes → Invoices / A/R are database-backed. Inventory is connected for read/sync. Engineering, motors, time, IFTA, deliveries, documents and full accounting are next.</div><div id="dbMessage"></div>`;
@@ -1593,7 +1603,64 @@ async function editCustomer(id){
    }catch(e){alert("Customer was not saved to the database: "+(e.message||e))}
  });
 }
-async function openNewJob(){
+async 
+async function openNewEquipment(){
+ const session=await getCurrentSupabaseSession();
+ const customerOpts=customerOptions();
+ const jobOpts=(db.jobs||[]).map(j=>`<option value="${esc(j.id)}">${esc(j.id)} — ${esc(j.customer||"")}</option>`).join("");
+ openModal("Add Motor / Equipment",`<div class="form-grid">
+   <div class="field"><label>Customer</label><select name="customer">${customerOpts}</select></div>
+   <div class="field"><label>Job</label><select name="job"><option value="">— Not assigned yet —</option>${jobOpts}</select></div>
+   <div class="field"><label>Equipment Type</label><select name="type"><option>Motor</option><option>Breaker</option><option>Generator</option><option>Pump</option><option>Transformer</option><option>Switchgear</option><option>Recloser</option><option>Other</option></select></div>
+   <div class="field"><label>Manufacturer</label><input name="manufacturer"></div>
+   <div class="field"><label>Model</label><input name="model"></div>
+   <div class="field"><label>Serial Number</label><input name="serial"></div>
+   <div class="field"><label>Horsepower</label><input name="hp" type="number"></div>
+   <div class="field"><label>Voltage</label><input name="voltage"></div>
+   <div class="field"><label>Amperage</label><input name="amperage"></div>
+   <div class="field"><label>Phase</label><input name="phase"></div>
+   <div class="field"><label>Frequency</label><input name="frequency"></div>
+   <div class="field"><label>RPM</label><input name="rpm"></div>
+   <div class="field"><label>Frame</label><input name="frame"></div>
+   <div class="field"><label>AC / DC</label><select name="acdc"><option>AC</option><option>DC</option></select></div>
+   <div class="field full"><label>Description</label><textarea name="description" rows="3"></textarea></div>
+ </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Equipment</button></div>`,
+ async f=>{
+   const customerName=f.get("customer"),jobNumber=f.get("job");
+   try{
+     let customerId=await dbCustomerIdByName(customerName);
+     let jobId=null;
+     if(jobNumber){
+       const j=db.jobs.find(x=>x.id===jobNumber);
+       if(session){
+         const {data,error}=await supabaseClient.from("jobs").select("id").eq("job_number",jobNumber).maybeSingle();
+         if(error)throw error;
+         jobId=data?.id||null;
+       }else jobId=j?.id||null;
+     }
+     const equipmentNumber=session?await nextEquipmentNumber():`M-${String((db.equipment||[]).length+100001).padStart(6,"0")}`;
+     const payload={
+       equipment_number:equipmentNumber,customer_id:customerId||null,job_id:jobId||null,
+       equipment_type:f.get("type"),manufacturer:f.get("manufacturer")||null,model:f.get("model")||null,
+       serial_number:f.get("serial")||null,horsepower:f.get("hp")?Number(f.get("hp")):null,
+       voltage:f.get("voltage")||null,amperage:f.get("amperage")||null,phase:f.get("phase")||null,
+       frequency:f.get("frequency")||null,rpm:f.get("rpm")?Number(f.get("rpm")):null,
+       frame:f.get("frame")||null,ac_dc:f.get("acdc")||null,description:f.get("description")||null
+     };
+     let row=null;
+     if(session) row=await saveEquipmentToDatabase(payload);
+     const item={id:row?.id||Date.now(),equipmentNumber:row?.equipment_number||equipmentNumber,
+       customer:customerName,jobId:jobNumber||"",type:payload.equipment_type,manufacturer:payload.manufacturer||"",
+       model:payload.model||"",serial:payload.serial_number||"",hp:payload.horsepower??"",voltage:payload.voltage||"",
+       amperage:payload.amperage||"",phase:payload.phase||"",frequency:payload.frequency||"",rpm:payload.rpm??"",
+       frame:payload.frame||"",acdc:payload.ac_dc||"",description:payload.description||""};
+     db.equipment=db.equipment||[];db.equipment.push(item);
+     logAudit(`Created equipment ${equipmentNumber}`);save();closeModal();render();
+   }catch(e){alert("Equipment was not saved: "+(e.message||e))}
+ });
+}
+
+function openNewJob(){
  const session=await getCurrentSupabaseSession();
  openModal("New Motor / Breaker Job",`<div class="form-grid">
    <div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div>
