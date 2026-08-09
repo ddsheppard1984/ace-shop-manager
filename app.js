@@ -82,6 +82,12 @@ async function saveSupabaseSettings(){
 }
 
 
+function showEquipmentTest(){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  const el=document.getElementById("equipment-test");
+  if(el)el.classList.add("active");
+  if(typeof renderEquipmentTestPanel==="function")renderEquipmentTestPanel();
+}
 /* === EQUIPMENT DATABASE TEST MODULE (isolated from core v5.3) === */
 async function loadEquipmentFromSupabase(){
   if(!supabaseClient)return;
@@ -2084,4 +2090,3 @@ document.getElementById("askAssistant")?.addEventListener("click",()=>{const q=d
 
 render();
 
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",installEquipmentTestPage)}else{installEquipmentTestPage()}

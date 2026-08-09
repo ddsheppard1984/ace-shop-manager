@@ -19,6 +19,7 @@
       <button class="nav active" data-view="dashboard">Dashboard</button>
       <button class="nav" data-view="customers">Customers</button>
       <button class="nav" data-view="jobs">Jobs / Motors</button>
+      <button class="nav" data-view="equipment-test" onclick="showEquipmentTest()">⚙️ Equipment TEST</button>
       <button class="nav" data-view="motor-records">Motor Master Records</button>
       <button class="nav" data-view="inventory">Inventory / Parts</button>
       <button class="nav" data-view="new-motors">New Motors</button>
@@ -263,7 +264,8 @@
       <div class="toolbar"><button class="primary" id="addDelivery">+ Schedule Pickup / Delivery</button></div>
       <div class="panel"><div id="deliveryTable"></div></div>
     </section>
-  </main>
+  <section id="equipment-test" class="view"><div id="equipmentTestPanel"></div></section>
+</main>
 </div>
 
 <div class="modal hidden" id="modal">
