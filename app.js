@@ -97,7 +97,7 @@ function editCustomer(id){
  openModal("Edit Customer",`<div class="form-grid"><div class="field"><label>Company / Name</label><input name="name" value="${esc(c.name)}" required></div><div class="field"><label>Contact</label><input name="contact" value="${esc(c.contact)}"></div><div class="field"><label>Phone</label><input name="phone" value="${esc(c.phone)}"></div><div class="field"><label>Email</label><input name="email" value="${esc(c.email)}"></div></div><div class="form-actions"><button class="primary">Save Changes</button></div>`,f=>Object.assign(c,{name:f.get("name"),contact:f.get("contact"),phone:f.get("phone"),email:f.get("email")}));
 }
 function openNewJob(){
- openModal("New Motor / Breaker Job",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Equipment Type</label><select name="type"><option>AC 3 Phase</option><option>AC Single Phase</option><option>DC Motor</option><option>Breaker</option><option>Pump</option><option>Generator</option><option>Other</option></select></div><div class="field"><label>Horsepower</label><input name="hp" type="number"></div><div class="field"><label>Voltage</label><input name="voltage"></div><div class="field"><label>Serial Number</label><input name="serial"></div><div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Rush</option></select></div><div class="field full"><label>Customer Complaint / Notes</label><textarea name="notes" rows="3"></textarea></div></div><div class="form-actions"><button class="primary">Create Job</button></div>`,f=>{const n=db.jobs.length+1001;db.jobs.push({id:"J-"+n,customer:f.get("customer"),type:f.get("type"),hp:f.get("hp"),voltage:f.get("voltage"),serial:f.get("serial"),stage:"Receiving",priority:f.get("priority"),notes:f.get("notes")})});
+ openModal("New Motor / Breaker Job",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Equipment Type</label><select name="type"><option>AC 3 Phase</option><option>AC Single Phase</option><option>DC Motor</option><option>Breaker</option><option>Pump</option><option>Generator</option><option>Other</option></select></div><div class="field"><label>Horsepower</label><input name="hp" type="number"></div><div class="field"><label>Voltage</label><input name="voltage"></div><div class="field"><label>Serial Number</label><input name="serial"></div><div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Rush</option></select></div><div class="field full"><label>Customer Complaint / Notes</label><textarea name="notes" rows="3"></textarea></div></div><div class="form-actions"><button class="primary">Create Job</button></div>`,f=>{const n=db.jobs.length+1001;db.jobs.push({id:"J-"+n,customer:f.get("customer"),type:f.get("type"),hp:f.get("hp"),voltage:f.get("voltage"),serial:f.get("serial"),stage:"Receiving",priority:f.get("priority"),notes:f.get("notes"),completed:{},photos:[]})});
 }
 function editJob(id){
  const j=db.jobs.find(x=>x.id===id); if(!j)return;
@@ -118,4 +118,55 @@ function openNewDelivery(){
  openModal("Schedule Pickup / Delivery",`<div class="form-grid"><div class="field"><label>Type</label><select name="type"><option>Pickup</option><option>Delivery</option></select></div><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Driver</label><select name="driver"><option>Unassigned</option><option>Driver 1</option><option>Driver 2</option><option>Driver 3</option><option>Driver 4</option></select></div></div><div class="form-actions"><button class="primary">Schedule</button></div>`,f=>db.deliveries.push({id:"D-"+(db.deliveries.length+3001),type:f.get("type"),customer:f.get("customer"),date:f.get("date"),driver:f.get("driver"),status:"Scheduled"}));
 }
 ["customerSearch","jobSearch","inventorySearch"].forEach(id=>document.getElementById(id).addEventListener("input",render));
+
+const WORKFLOW=[
+["Receiving","Job In / Receiving",["Confirm customer/contact","Record nameplate and equipment data","Record customer complaint/scope","Take incoming-condition photos","Assign job number/tag"]],
+["Inspection","Initial Inspection & Testing",["Document incoming condition","Record applicable electrical tests","Record mechanical observations","Document suspected failure cause","Attach inspection photos/test sheets"]],
+["Disassembly","Disassembly",["Confirm approved scope","Photograph orientation/connections","Record shims/hardware/component locations","Inspect bearings/seals/shaft","Document teardown findings"]],
+["Cleaning","Cleaning / Drying",["Select approved cleaning method","Protect equipment during cleaning","Document post-cleaning condition","Dry using shop-approved method","Reinspect insulation/core/fits"]],
+["Repair","Repair / Reconditioning",["Confirm approved repair scope","Record repair work performed","Record parts/bearings used","Record winding/rewind data when applicable","Complete intermediate inspections"]],
+["Assembly","Assembly",["Verify parts/components","Verify bearings/seals/fits","Reassemble in documented orientation","Verify leads/accessories","Perform mechanical checks"]],
+["Testing","Final Testing",["Record applicable insulation resistance/PI results","Record winding resistance","Record applicable no-load/load results","Record voltage/current/phase balance/RPM/vibration/temp as applicable","Attach final test sheet"]],
+["FinalInspection","Final Inspection / QC",["Verify scope complete","Verify test results recorded","Verify hardware/guards/leads/accessories","Verify finish and identification","Supervisor/QC sign-off"]],
+["Ready","Ready for Pickup / Delivery",["Confirm customer notification","Confirm invoice/paperwork","Confirm motor tagged/staged","Confirm pickup/delivery arrangement","Record release authorization"]]
+];
+const WF_KEYS=WORKFLOW.map(x=>x[0]);
+function jobPct(j){let i=WF_KEYS.indexOf(j.stage);return Math.max(0,Math.round(i/(WF_KEYS.length-1)*100))}
+function addJobPhoto(id,stage){
+ const input=document.createElement("input"); input.type="file"; input.accept="image/*"; input.multiple=true; input.capture="environment";
+ input.onchange=async()=>{let j=db.jobs.find(x=>x.id===id);j.photos=j.photos||[];for(const f of input.files){j.photos.push({stage,name:f.name,data:await photoData(f)})}save();editJob(id)}; input.click();
+}
+function photoData(file){return new Promise(res=>{let r=new FileReader();r.onload=e=>{let im=new Image();im.onload=()=>{let c=document.createElement("canvas"),m=Math.min(1,1200/im.width,1200/im.height);c.width=im.width*m;c.height=im.height*m;c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.7))};im.src=e.target.result};r.readAsDataURL(file)})}
+function completeStage(id,key){
+ let j=db.jobs.find(x=>x.id===id), i=WF_KEYS.indexOf(key), checks=(j.checks||{})[key]||[];
+ if(checks.filter(Boolean).length<WORKFLOW[i][2].length){alert("Complete every checklist item before moving forward. A supervisor override can be used when authorized.");return}
+ j.completed=j.completed||{};j.completed[key]=true;j.stage=WORKFLOW[i+1]?WORKFLOW[i+1][0]:"Completed";save();editJob(id)
+}
+function supervisorOverride(id){
+ let j=db.jobs.find(x=>x.id===id), code=prompt("Prototype supervisor override code: 2468");
+ if(code!=="2468"){alert("Override denied.");return}
+ let i=WF_KEYS.indexOf(j.stage);j.overrides=j.overrides||[];j.overrides.push({from:j.stage,at:new Date().toISOString()});
+ j.completed=j.completed||{};j.completed[j.stage]=true;j.stage=WORKFLOW[i+1]?WORKFLOW[i+1][0]:"Completed";save();editJob(id)
+}
+function workflowHtml(j){
+ return WORKFLOW.map((w,i)=>{let done=(j.completed||{})[w[0]],active=j.stage===w[0];
+ return `<div class="stage ${done?"done":""} ${active?"active":""}"><div class="stage-top"><div><b>${i+1}. ${w[1]}</b><div class="muted">${done?"Completed":active?"Current step":"Locked"}</div></div><span class="stage-dot">${done?"✓":i+1}</span></div>
+ ${active?`<div class="checklist">${w[2].map((x,k)=>`<label><input class="wfcheck" data-key="${w[0]}" data-i="${k}" type="checkbox" ${((j.checks||{})[w[0]]||[])[k]?"checked":""}>${x}</label>`).join("")}</div>
+ <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button><button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
+}
+function editJob(id){
+ let j=db.jobs.find(x=>x.id===id);if(!j)return;
+ let photos=(j.photos||[]).map(x=>`<div class="photo"><img src="${x.data}"><small>${esc(x.stage)} · ${esc(x.name)}</small></div>`).join("")||empty("No photos attached.");
+ openModal("Job "+j.id,`<div class="job-summary"><div><b>${esc(j.customer)}</b><div class="muted">${esc(j.type)} · ${j.hp?esc(j.hp)+" HP · ":""}${esc(j.voltage)} V · S/N ${esc(j.serial)}</div></div>${badge(j.stage)}</div>
+ <div class="progress"><div style="width:${jobPct(j)}%"></div></div><div class="progress-label"><span>${jobPct(j)}%</span><span>${esc(j.stage)}</span></div>
+ <div class="notice"><b>Workflow lock:</b> each step must be completed before the next step opens. Supervisor override is available for authorized exceptions.</div>
+ <div class="workflow">${workflowHtml(j)}</div>
+ <div class="override"><button type="button" class="secondary" onclick="supervisorOverride('${j.id}')">🔒 Supervisor Override Current Step</button></div>
+ <div class="field"><label>Job Notes</label><textarea id="jn" rows="4">${esc(j.notes||"")}</textarea></div>
+ <div><b>Motor / Job Photos</b><div class="photos">${photos}</div></div>
+ <div class="form-actions"><button type="button" class="primary" onclick="saveJobNotes('${j.id}')">Save Job</button></div>`,()=>{});
+ document.querySelectorAll(".wfcheck").forEach(c=>c.onchange=()=>{j.checks=j.checks||{};j.checks[c.dataset.key]=j.checks[c.dataset.key]||[];j.checks[c.dataset.key][+c.dataset.i]=c.checked;save()})
+}
+function saveJobNotes(id){let j=db.jobs.find(x=>x.id===id);j.notes=document.getElementById("jn").value;save();closeModal();render()}
+
 render();

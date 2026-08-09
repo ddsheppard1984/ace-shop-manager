@@ -41,3 +41,11 @@ NEXT DEVELOPMENT MILESTONE
 - QR codes
 - Technician workflow
 - Proper Windows/iPhone deployment
+
+
+V0.2 WORKFLOW FEATURES
+- Prototype workflow: Receiving, Inspection, Disassembly, Cleaning/Drying, Repair/Reconditioning, Assembly, Testing, Final Inspection/QC, Ready for Pickup/Delivery.
+- Each stage has a checklist and is locked until the previous stage is completed.
+- Supervisor override exists for demo purposes only (code 2468). Production must use authenticated supervisor accounts, audit logs and permissions.
+- iPhone camera/file photo capture is supported; photos are attached to the job and stage in this prototype.
+- Public online procedure sources used as design references: ANSI/EASA AR100-2025, ABB maintenance documentation, and IEEE insulation-resistance guidance. These are not copied into the app. Replace the generic checklist with AC Electric's approved procedures, manufacturer requirements, applicable standards, safety/LOTO rules and acceptance criteria before production use.
