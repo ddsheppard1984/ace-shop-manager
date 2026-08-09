@@ -81,3 +81,5 @@
 
 .productivity-box{margin:15px 0;padding:14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}.productivity-title{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}.productivity-grid{display:grid;gap:7px}.productivity-row{display:grid;grid-template-columns:150px 1fr 75px 55px;align-items:center;gap:10px;font-size:13px}.productivity-bar{height:12px;background:#eef2f7;border-radius:99px;overflow:hidden}.productivity-bar span{display:block;height:100%;background:#64748b;border-radius:99px}.productivity-row>div:last-child{text-align:right;font-weight:600}
 @media(max-width:700px){.productivity-row{grid-template-columns:110px 1fr 65px 50px;font-size:12px}}
+
+.employee-admin-card{border:2px solid #93c5fd!important;background:#eff6ff!important}.employee-admin-card:hover{background:#dbeafe!important}

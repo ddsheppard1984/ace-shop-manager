@@ -252,7 +252,16 @@ function renderAdmin(){
  document.querySelectorAll(".admin-card").forEach(b=>b.onclick=()=>openAdminTab(b.dataset.adminTab));
 }
 function openAdminTab(tab){
- ensureEmployeeData(); if(tab==="employees"){const e=document.getElementById("adminPanel");if(e){e.innerHTML='<h3>👷 Employee Tracking</h3><div id="employeeAdminPanel"></div>';renderEmployeeAdmin();}return;}
+ if(tab==="employees"){
+   ensureEmployeeData();
+   const e=document.getElementById("adminPanel");
+   if(e){
+     e.innerHTML='<h3>👷 Employee Tracking & Productivity</h3><div class="notice">Track employee hours, jobs, labor codes and productivity. Use the date/filter controls in the production version for weekly, monthly and quarterly reporting.</div><div id="employeeAdminPanel"></div>';
+     renderEmployeeAdmin();
+   }
+   return;
+ }
+
 
  adminData();const a=db.admin;const el=document.getElementById("adminPanel");let html="";
  if(tab==="company")html=`<h3>Company / Shop Information</h3><div class="form-grid">${motorField("Company Name","a_company",a.company.name)}${motorField("Phone","a_phone",a.company.phone)}${motorField("Email","a_email",a.company.email)}${motorField("Time Zone","a_timezone",a.company.timezone)}${motorText("Address","a_address",a.company.address,2)}</div><button class="primary" onclick="saveAdminTab('company')">Save Company Settings</button>`;

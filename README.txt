@@ -299,3 +299,9 @@ V2.9 EMPLOYEE PRODUCTIVITY TRACKING
 - Displays hours and percentage of tracked time for each category.
 - Designed to show categories such as Shop, Job Misc, Cleaning, Tear Down, Build/Assembly, Inspection, Repair, Testing, Travel and other configured codes.
 - This is intended as an operational productivity view, not a standalone performance rating. Production should support date ranges, department comparisons, approved/locked time and supervisor review before payroll or disciplinary use.
+
+
+V3.0 ADMIN EMPLOYEE TRACKING VISIBILITY FIX
+- Added a clearly visible Employee Tracking & Productivity card directly to the Administration grid.
+- Added a dedicated Administration tab handler that opens the employee tracking dashboard.
+- Employee dashboard includes hours, jobs worked, productivity breakdown by labor/time code and detailed activity history.
