@@ -149,3 +149,10 @@ V1.2 ADMINISTRATION AREA
 - Delivery signature and damaged-photo rules are configurable.
 - Audit log framework added for administrative changes.
 - Parts/Bearings catalog framework added for future inventory integration.
+
+
+V1.3 ADMIN NAVIGATION FIX
+- Added visible Users / Access and Administration navigation buttons to the sidebar.
+- Ensured Users and Administration panels are rendered when the app loads.
+- Added Add User button initialization.
+- Updated prototype version label.

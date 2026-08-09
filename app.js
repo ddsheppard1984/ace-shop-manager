@@ -726,4 +726,8 @@ function editJob(id){
 }
 function saveJobNotes(id){let j=db.jobs.find(x=>x.id===id);j.notes=document.getElementById("jn").value;save();closeModal();render()}
 
+renderUsers();
+renderAdmin();
+document.getElementById("addUser")?.addEventListener("click",()=>openUserBuilder());
+
 render();
