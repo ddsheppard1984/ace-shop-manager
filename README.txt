@@ -81,3 +81,8 @@ V0.5 PICKUP / DELIVERY RULE UPDATE
 - Pickup requires a motor/equipment description and allows optional HP, AC/DC, phase, voltage, manufacturer, model and serial information.
 - Return delivery requires customer receiving name and signature.
 - Delivery photos are optional unless a damage/problem condition is reported.
+
+V0.6 DASHBOARD JOB NAVIGATION
+- Dashboard job entries open the selected job directly when clicked.
+- Jobs / Motors remains available for full job searching and management.
+- Clickable dashboard rows have hover styling.

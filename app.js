@@ -169,6 +169,11 @@ function openNewMotorRecord(){
  openNewJob();
 }
 
+
+function openJobFromDashboard(id){
+  editJob(id);
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));

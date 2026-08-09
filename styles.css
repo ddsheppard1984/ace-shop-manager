@@ -23,3 +23,6 @@
 @media(max-width:650px){.history-grid{grid-template-columns:1fr}.chain{grid-template-columns:1fr 1fr}}
 
 .req{color:#b91c1c}.photo-rule{margin-top:8px}.condition-grid{margin-top:10px}
+
+.clickable{cursor:pointer}
+.clickable:hover{background:#f8fafc}
