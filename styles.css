@@ -65,3 +65,5 @@
 
 .timer-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #fecaca;background:#fff7f7;border-radius:10px;margin-bottom:10px}.timer-card span{display:block;color:#64748b;font-size:12px;margin-top:3px}.timer-live{font-family:monospace;font-size:20px;font-weight:700}.danger-btn{border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:7px;padding:7px 10px;cursor:pointer}
 @media(max-width:700px){.timer-card{flex-wrap:wrap}.timer-live{width:100%}}
+
+.ifta-admin-card{border:2px solid #93c5fd;background:#eff6ff}.ifta-admin-card b{font-size:16px}.ifta-admin-card span{font-weight:600}

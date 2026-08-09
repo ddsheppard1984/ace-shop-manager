@@ -229,3 +229,10 @@ V2.1 TECHNICIAN LABOR TIME TRACKING
 - Labor sessions are retained as start/end timestamps and calculated minutes.
 - Labor dashboard shows total labor hours, technician count and session history.
 - Future production version will enforce employee logins instead of technician-name prompts and can calculate labor cost from the configured labor rate.
+
+
+V2.2 ADMIN IFTA VISIBILITY FIX
+- Added a guaranteed visible Fleet / IFTA card inside Administration.
+- Added a guaranteed Fleet / IFTA tab renderer so the quarterly running log opens from Administration.
+- Added explicit Administration rendering and card click binding.
+- IFTA dashboard remains separate from the driver mileage entry and supports quarterly totals/finalization.
