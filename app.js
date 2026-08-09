@@ -81,80 +81,164 @@ async function saveSupabaseSettings(){
  saveSupabaseConfig({url,anonKey}); initSupabase(); await renderDatabasePanel();
 }
 
-/* === ISOLATED EQUIPMENT TEST MODULE === */
-function equipmentTestModule(){
-  return {list:db.equipmentTest||[],types:["Motor","Breaker","Transformer","Switchgear","Recloser","Generator","Pump","Other"]};
+
+/* === EQUIPMENT DATABASE TEST MODULE (isolated from core v5.3) === */
+async function loadEquipmentFromSupabase(){
+  if(!supabaseClient)return;
+  const {data:sessionData}=await supabaseClient.auth.getSession();
+  if(!sessionData?.session)throw new Error("Sign in to Supabase first.");
+  const {data,error}=await supabaseClient.from("equipment").select("*").order("equipment_number");
+  if(error)throw error;
+  db.equipmentTest=(data||[]).map(x=>({
+    id:x.id,
+    number:x.equipment_number||"",
+    type:x.equipment_type||"",
+    customerId:x.customer_id||null,
+    jobId:x.job_id||null,
+    customer:x.company_name||"",
+    job:x.job_number||"",
+    manufacturer:x.manufacturer||"",
+    model:x.model||"",
+    serial:x.serial_number||"",
+    hp:x.horsepower??"",
+    voltage:x.voltage||"",
+    amperage:x.amperage||"",
+    phase:x.phase||"",
+    frequency:x.frequency||"",
+    rpm:x.rpm??"",
+    frame:x.frame||"",
+    acdc:x.ac_dc||"",
+    description:x.description||""
+  }));
+  save();
 }
-function renderEquipmentTestPanel(){
-  const root=document.getElementById("equipmentTestPanel");
-  if(!root)return;
-  const m=equipmentTestModule();
-  const q=(window.equipmentTestSearch||"").toLowerCase();
-  const type=window.equipmentTestType||"";
-  const rows=m.list.filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
+async function equipmentCustomerId(name){
+  const local=(db.customers||[]).find(c=>c.name===name);
+  if(local?.id && String(local.id).length>20)return local.id;
+  const {data,error}=await supabaseClient.from("customers").select("id").eq("company_name",name).maybeSingle();
+  if(error)throw error;
+  return data?.id||null;
+}
+async function equipmentJobId(jobNumber){
+  if(!jobNumber)return null;
+  const local=(db.jobs||[]).find(j=>String(j.id)===String(jobNumber));
+  const {data,error}=await supabaseClient.from("jobs").select("id").eq("job_number",jobNumber).maybeSingle();
+  if(error)throw error;
+  return data?.id||local?.id||null;
+}
+async function nextEquipmentDbNumber(){
+  const {data,error}=await supabaseClient.from("equipment").select("equipment_number").like("equipment_number","M-%").order("equipment_number",{ascending:false}).limit(200);
+  if(error)throw error;
+  let max=100000;
+  for(const row of (data||[])){
+    const m=String(row.equipment_number||"").match(/^M-(\d+)$/);
+    if(m)max=Math.max(max,Number(m[1]));
+  }
+  return `M-${String(max+1).padStart(6,"0")}`;
+}
+async function saveEquipmentTestToDb(f){
+  const customerName=f.get("customer"),jobNumber=f.get("job");
+  const customerId=customerName?await equipmentCustomerId(customerName):null;
+  const jobId=jobNumber?await equipmentJobId(jobNumber):null;
+  const number=(f.get("number")||"").trim()||await nextEquipmentDbNumber();
+  const payload={
+    equipment_number:number,customer_id:customerId,job_id:jobId,equipment_type:f.get("type"),
+    manufacturer:f.get("manufacturer")||null,model:f.get("model")||null,serial_number:f.get("serial")||null,
+    horsepower:f.get("hp")?Number(f.get("hp")):null,voltage:f.get("voltage")||null,
+    amperage:f.get("amperage")||null,phase:f.get("phase")||null,frequency:f.get("frequency")||null,
+    rpm:f.get("rpm")?Number(f.get("rpm")):null,frame:f.get("frame")||null,
+    ac_dc:f.get("acdc")||null,description:f.get("description")||null
+  };
+  const {data,error}=await supabaseClient.from("equipment").insert(payload).select("*").single();
+  if(error)throw error;
+  return data;
+}
+async function updateEquipmentTestDb(id,f){
+  const customerName=f.get("customer"),jobNumber=f.get("job");
+  const payload={
+    customer_id:customerName?await equipmentCustomerId(customerName):null,
+    job_id:jobNumber?await equipmentJobId(jobNumber):null,equipment_type:f.get("type"),
+    manufacturer:f.get("manufacturer")||null,model:f.get("model")||null,serial_number:f.get("serial")||null,
+    horsepower:f.get("hp")?Number(f.get("hp")):null,voltage:f.get("voltage")||null,
+    amperage:f.get("amperage")||null,phase:f.get("phase")||null,frequency:f.get("frequency")||null,
+    rpm:f.get("rpm")?Number(f.get("rpm")):null,frame:f.get("frame")||null,
+    ac_dc:f.get("acdc")||null,description:f.get("description")||null
+  };
+  const {data,error}=await supabaseClient.from("equipment").update(payload).eq("id",id).select("*").single();
+  if(error)throw error;
+  return data;
+}
+function equipmentDbRow(x){
+  return {id:x.id,number:x.equipment_number||"",type:x.equipment_type||"",customerId:x.customer_id||null,
+    jobId:x.job_id||null,customer:x.company_name||"",job:x.job_number||"",manufacturer:x.manufacturer||"",
+    model:x.model||"",serial:x.serial_number||"",hp:x.horsepower??"",voltage:x.voltage||"",
+    amperage:x.amperage||"",phase:x.phase||"",frequency:x.frequency||"",rpm:x.rpm??"",
+    frame:x.frame||"",acdc:x.ac_dc||"",description:x.description||""};
+}
+async function renderEquipmentTestPanel(){
+  const root=document.getElementById("equipmentTestPanel");if(!root)return;
+  try{await loadEquipmentFromSupabase()}catch(e){
+    root.innerHTML=`<div class="card"><h2>⚙️ Equipment — TEST</h2><div class="action-alert">${esc(e.message||e)}</div><button class="primary" onclick="renderEquipmentTestPanel()">Retry Database</button></div>`;
+    return;
+  }
+  const list=db.equipmentTest||[],m=equipmentTestModule(),q=(window.equipmentTestSearch||"").toLowerCase(),type=window.equipmentTestType||"";
+  const rows=list.filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
   root.innerHTML=`<div class="card">
-    <div class="page-head"><div><h2>⚙️ Equipment — TEST</h2><p class="muted">Isolated test module. Your existing database workflow is untouched.</p></div>
+    <div class="page-head"><div><h2>⚙️ Equipment — DATABASE TEST</h2><p class="muted">This module now reads and writes the real Supabase equipment table.</p></div>
     <button class="primary" onclick="openEquipmentTestForm()">+ Add Equipment</button></div>
     <div class="toolbar"><input class="search-input" placeholder="Search equipment, serial, customer or job..." value="${esc(q)}" oninput="window.equipmentTestSearch=this.value;renderEquipmentTestPanel()">
     <select onchange="window.equipmentTestType=this.value;renderEquipmentTestPanel()"><option value="">All types</option>${m.types.map(t=>`<option value="${esc(t)}" ${type===t?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
     <div class="table-wrap"><table><thead><tr><th>Equipment #</th><th>Type</th><th>Customer</th><th>Job</th><th>Manufacturer</th><th>Model</th><th>Serial #</th><th></th></tr></thead><tbody>
-    ${rows.length?rows.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button></td></tr>`).join(""):`<tr><td colspan="8"><div class="empty-state">No test equipment records yet.</div></td></tr>`}
-    </tbody></table></div>
-  </div>`;
+    ${rows.length?rows.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button> <button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td></tr>`).join(""):`<tr><td colspan="8"><div class="empty-state">No equipment records found.</div></td></tr>`}
+    </tbody></table></div></div>`;
 }
-function openEquipmentTestForm(){
-  const customers=(db.customers||[]).map(c=>`<option>${esc(c.name)}</option>`).join("");
-  const jobs=(db.jobs||[]).map(j=>`<option>${esc(j.id)}</option>`).join("");
-  const types=equipmentTestModule().types.map(t=>`<option>${esc(t)}</option>`).join("");
-  openModal("Add Equipment — Test",`<div class="form-grid">
-    <div class="field"><label>Equipment #</label><input name="number" placeholder="M-100001"></div>
+function equipmentFormHtml(e){
+  e=e||{};
+  const customers=(db.customers||[]).map(c=>`<option value="${esc(c.name)}" ${c.name===e.customer?"selected":""}>${esc(c.name)}</option>`).join("");
+  const jobs=(db.jobs||[]).map(j=>`<option value="${esc(j.id)}" ${String(j.id)===String(e.job)?"selected":""}>${esc(j.id)} — ${esc(j.customer||"")}</option>`).join("");
+  const types=equipmentTestModule().types.map(t=>`<option value="${esc(t)}" ${t===e.type?"selected":""}>${esc(t)}</option>`).join("");
+  return `<div class="form-grid">
+    <div class="field"><label>Equipment #</label><input name="number" value="${esc(e.number||"")}" ${e.id?"readonly":""} placeholder="Auto-generated"></div>
     <div class="field"><label>Type</label><select name="type">${types}</select></div>
     <div class="field"><label>Customer</label><select name="customer"><option value="">— Select —</option>${customers}</select></div>
     <div class="field"><label>Job</label><select name="job"><option value="">— Select —</option>${jobs}</select></div>
-    <div class="field"><label>Manufacturer</label><input name="manufacturer"></div>
-    <div class="field"><label>Model</label><input name="model"></div>
-    <div class="field"><label>Serial #</label><input name="serial"></div>
-    <div class="field"><label>Horsepower</label><input name="hp" type="number"></div>
-    <div class="field"><label>Voltage</label><input name="voltage"></div>
-    <div class="field"><label>RPM</label><input name="rpm"></div>
-    <div class="field full"><label>Description</label><textarea name="description" rows="3"></textarea></div>
-  </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Test Equipment</button></div>`,
-  f=>{
-    db.equipmentTest=db.equipmentTest||[];
-    const id="ET-"+Date.now();
-    db.equipmentTest.push({id,number:f.get("number")||`M-${String(100001+db.equipmentTest.length).padStart(6,"0")}`,type:f.get("type"),customer:f.get("customer"),job:f.get("job"),manufacturer:f.get("manufacturer"),model:f.get("model"),serial:f.get("serial"),hp:f.get("hp"),voltage:f.get("voltage"),rpm:f.get("rpm"),description:f.get("description")});
-    save();closeModal();renderEquipmentTestPanel();
+    <div class="field"><label>Manufacturer</label><input name="manufacturer" value="${esc(e.manufacturer||"")}"></div>
+    <div class="field"><label>Model</label><input name="model" value="${esc(e.model||"")}"></div>
+    <div class="field"><label>Serial #</label><input name="serial" value="${esc(e.serial||"")}"></div>
+    <div class="field"><label>Horsepower</label><input name="hp" type="number" value="${esc(e.hp??"")}"></div>
+    <div class="field"><label>Voltage</label><input name="voltage" value="${esc(e.voltage||"")}"></div>
+    <div class="field"><label>Amperage</label><input name="amperage" value="${esc(e.amperage||"")}"></div>
+    <div class="field"><label>Phase</label><input name="phase" value="${esc(e.phase||"")}"></div>
+    <div class="field"><label>Frequency</label><input name="frequency" value="${esc(e.frequency||"")}"></div>
+    <div class="field"><label>RPM</label><input name="rpm" value="${esc(e.rpm??"")}"></div>
+    <div class="field"><label>Frame</label><input name="frame" value="${esc(e.frame||"")}"></div>
+    <div class="field"><label>AC / DC</label><select name="acdc"><option ${e.acdc==="AC"?"selected":""}>AC</option><option ${e.acdc==="DC"?"selected":""}>DC</option></select></div>
+    <div class="field full"><label>Description</label><textarea name="description" rows="3">${esc(e.description||"")}</textarea></div>
+  </div>`;
+}
+function openEquipmentTestForm(){
+  openModal("Add Equipment — Database Test",equipmentFormHtml(),async f=>{
+    try{await saveEquipmentTestToDb(f);closeModal();await renderEquipmentTestPanel()}
+    catch(e){alert("Equipment was not saved to Supabase: "+(e.message||e))}
+  });
+}
+async function editEquipmentTest(id){
+  const e=(db.equipmentTest||[]).find(x=>String(x.id)===String(id));if(!e)return;
+  openModal(`Edit ${esc(e.number)}`,equipmentFormHtml(e),async f=>{
+    try{await updateEquipmentTestDb(id,f);closeModal();await renderEquipmentTestPanel()}
+    catch(err){alert("Equipment was not updated in Supabase: "+(err.message||err))}
   });
 }
 function viewEquipmentTest(id){
-  const e=(db.equipmentTest||[]).find(x=>x.id===id);if(!e)return;
+  const e=(db.equipmentTest||[]).find(x=>String(x.id)===String(id));if(!e)return;
   openModal(`Equipment ${esc(e.number)}`,`<div class="detail-grid">
     <div><strong>Type</strong><span>${esc(e.type)}</span></div><div><strong>Customer</strong><span>${esc(e.customer||"—")}</span></div>
     <div><strong>Job</strong><span>${esc(e.job||"—")}</span></div><div><strong>Manufacturer</strong><span>${esc(e.manufacturer||"—")}</span></div>
     <div><strong>Model</strong><span>${esc(e.model||"—")}</span></div><div><strong>Serial</strong><span>${esc(e.serial||"—")}</span></div>
-    <div><strong>HP</strong><span>${esc(e.hp||"—")}</span></div><div><strong>Voltage</strong><span>${esc(e.voltage||"—")}</span></div><div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div>
+    <div><strong>HP</strong><span>${esc(e.hp||"—")}</span></div><div><strong>Voltage</strong><span>${esc(e.voltage||"—")}</span></div>
+    <div><strong>Amperage</strong><span>${esc(e.amperage||"—")}</span></div><div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div>
   </div><div class="section-title">Description</div><div class="notes-box">${esc(e.description||"—")}</div>
   <div class="form-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
-}
-function installEquipmentTestPage(){
-  if(document.getElementById("equipment-test"))return;
-  const main=document.querySelector("main");
-  if(!main)return;
-  const sec=document.createElement("section");
-  sec.id="equipment-test";sec.className="view";
-  sec.innerHTML='<div id="equipmentTestPanel"></div>';
-  main.appendChild(sec);
-  const nav=document.querySelector(".sidebar,.nav-list,.sidebar-nav,aside");
-  if(nav && !document.querySelector('[data-view="equipment-test"]')){
-    const b=document.createElement("button");
-    b.className="nav";b.dataset.view="equipment-test";b.textContent="⚙️ Equipment TEST";
-    b.addEventListener("click",()=>{
-      document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-      sec.classList.add("active");
-      renderEquipmentTestPanel();
-    });
-    nav.appendChild(b);
-  }
 }
 
 async function renderDatabasePanel(){
