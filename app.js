@@ -90,116 +90,7 @@ function jobEquipmentSummary(jobNumber){
  }</tbody></table></div>`;
 }
 
-
-function equipmentTypeOptions(selected){
- const types=["Motor","Breaker","Generator","Pump","Transformer","Switchgear","Recloser","Other"];
- return types.map(t=>`<option ${t===selected?"selected":""}>${esc(t)}</option>`).join("");
-}
-function renderEquipmentPage(){
- const target=document.getElementById("equipmentPage");
- if(!target)return;
- const list=db.equipment||[];
- const q=(window.equipmentSearch||"").toLowerCase();
- const type=window.equipmentFilterType||"";
- const filtered=list.filter(e=>
-   (!q || [e.equipmentNumber,e.customer,e.jobId,e.manufacturer,e.model,e.serial].join(" ").toLowerCase().includes(q)) &&
-   (!type || e.type===type)
- );
- target.innerHTML=`<div class="page-head"><div><h1>⚙️ Equipment</h1><p class="muted">Equipment master records and service history.</p></div>
- <div class="page-actions"><button class="primary" onclick="openNewEquipment()">+ Add Equipment</button></div></div>
- <div class="card"><div class="toolbar">
-   <input class="search-input" placeholder="Search equipment #, serial, customer, job..." value="${esc(window.equipmentSearch||"")}" oninput="window.equipmentSearch=this.value;render()">
-   <select onchange="window.equipmentFilterType=this.value;render()"><option value="">All equipment types</option>${equipmentTypeOptions(type)}</select>
- </div></div>
- <div class="card"><div class="table-wrap"><table><thead><tr>
-   <th>Equipment #</th><th>Type</th><th>Customer</th><th>Job</th><th>Manufacturer</th><th>Model</th><th>Serial #</th><th>HP</th><th>Voltage</th><th></th>
- </tr></thead><tbody>${
-   filtered.length ? filtered.map(e=>`<tr>
-     <td><button class="link-btn" onclick="viewEquipment('${esc(e.id)}')">${esc(e.equipmentNumber)}</button></td>
-     <td>${esc(e.type)}</td><td>${esc(e.customer)}</td><td>${esc(e.jobId)}</td>
-     <td>${esc(e.manufacturer)}</td><td>${esc(e.model)}</td><td>${esc(e.serial)}</td>
-     <td>${esc(e.hp)}</td><td>${esc(e.voltage)}</td>
-     <td><button class="secondary small" onclick="editEquipment('${esc(e.id)}')">Edit</button></td>
-   </tr>`).join("") : `<tr><td colspan="10"><div class="empty-state">No equipment records found.</div></td></tr>`
- }</tbody></table></div></div>`;
-}
-function viewEquipment(id){
- const e=(db.equipment||[]).find(x=>String(x.id)===String(id)); if(!e)return;
- const jobs=(db.jobs||[]).filter(j=>String(j.id)===String(e.jobId)||String(j.serial)===String(e.serial));
- openModal(`Equipment ${e.equipmentNumber}`,`
-   <div class="detail-grid">
-    <div><strong>Type</strong><span>${esc(e.type)}</span></div>
-    <div><strong>Customer</strong><span>${esc(e.customer)}</span></div>
-    <div><strong>Job</strong><span>${esc(e.jobId||"—")}</span></div>
-    <div><strong>Manufacturer</strong><span>${esc(e.manufacturer||"—")}</span></div>
-    <div><strong>Model</strong><span>${esc(e.model||"—")}</span></div>
-    <div><strong>Serial #</strong><span>${esc(e.serial||"—")}</span></div>
-    <div><strong>Horsepower</strong><span>${esc(e.hp||"—")}</span></div>
-    <div><strong>Voltage</strong><span>${esc(e.voltage||"—")}</span></div>
-    <div><strong>Amperage</strong><span>${esc(e.amperage||"—")}</span></div>
-    <div><strong>Phase</strong><span>${esc(e.phase||"—")}</span></div>
-    <div><strong>Frequency</strong><span>${esc(e.frequency||"—")}</span></div>
-    <div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div>
-    <div><strong>Frame</strong><span>${esc(e.frame||"—")}</span></div>
-    <div><strong>AC / DC</strong><span>${esc(e.acdc||"—")}</span></div>
-   </div>
-   <div class="section-title">Description</div><div class="notes-box">${esc(e.description||"No description.")}</div>
-   <div class="section-title">Current / Related Jobs</div>
-   ${jobs.length?`<div class="table-wrap"><table><thead><tr><th>Job</th><th>Customer</th><th>Type</th><th>Status</th></tr></thead><tbody>${jobs.map(j=>`<tr><td>${esc(j.id)}</td><td>${esc(j.customer)}</td><td>${esc(j.type)}</td><td>${esc(j.stage)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state">No related job history found yet.</div>`}
-   <div class="form-actions"><button class="secondary" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();editEquipment('${esc(e.id)}')">Edit Equipment</button></div>
- `);
-}
-async function editEquipment(id){
- const e=(db.equipment||[]).find(x=>String(x.id)===String(id)); if(!e)return;
- const session=await getCurrentSupabaseSession();
- const jobOpts=(db.jobs||[]).map(j=>`<option value="${esc(j.id)}" ${String(j.id)===String(e.jobId)?"selected":""}>${esc(j.id)} — ${esc(j.customer||"")}</option>`).join("");
- openModal(`Edit ${e.equipmentNumber}`,`<div class="form-grid">
-  <div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div>
-  <div class="field"><label>Job</label><select name="job"><option value="">— Not assigned —</option>${jobOpts}</select></div>
-  <div class="field"><label>Equipment Type</label><select name="type">${equipmentTypeOptions(e.type)}</select></div>
-  <div class="field"><label>Manufacturer</label><input name="manufacturer" value="${esc(e.manufacturer)}"></div>
-  <div class="field"><label>Model</label><input name="model" value="${esc(e.model)}"></div>
-  <div class="field"><label>Serial Number</label><input name="serial" value="${esc(e.serial)}"></div>
-  <div class="field"><label>Horsepower</label><input name="hp" type="number" value="${esc(e.hp)}"></div>
-  <div class="field"><label>Voltage</label><input name="voltage" value="${esc(e.voltage)}"></div>
-  <div class="field"><label>Amperage</label><input name="amperage" value="${esc(e.amperage)}"></div>
-  <div class="field"><label>Phase</label><input name="phase" value="${esc(e.phase)}"></div>
-  <div class="field"><label>Frequency</label><input name="frequency" value="${esc(e.frequency)}"></div>
-  <div class="field"><label>RPM</label><input name="rpm" value="${esc(e.rpm)}"></div>
-  <div class="field"><label>Frame</label><input name="frame" value="${esc(e.frame)}"></div>
-  <div class="field"><label>AC / DC</label><select name="acdc"><option ${e.acdc==="AC"?"selected":""}>AC</option><option ${e.acdc==="DC"?"selected":""}>DC</option></select></div>
-  <div class="field full"><label>Description</label><textarea name="description" rows="3">${esc(e.description||"")}</textarea></div>
- </div><div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary">Save Changes</button></div>`,
- async f=>{
-   try{
-     const customerName=f.get("customer"), jobNumber=f.get("job");
-     const customerId=await dbCustomerIdByName(customerName);
-     let jobId=null;
-     if(session && jobNumber){
-       const {data,error}=await supabaseClient.from("jobs").select("id").eq("job_number",jobNumber).maybeSingle();
-       if(error)throw error; jobId=data?.id||null;
-     }
-     const payload={
-       customer_id:customerId||null,job_id:jobId||null,equipment_type:f.get("type"),
-       manufacturer:f.get("manufacturer")||null,model:f.get("model")||null,serial_number:f.get("serial")||null,
-       horsepower:f.get("hp")?Number(f.get("hp")):null,voltage:f.get("voltage")||null,amperage:f.get("amperage")||null,
-       phase:f.get("phase")||null,frequency:f.get("frequency")||null,rpm:f.get("rpm")?Number(f.get("rpm")):null,
-       frame:f.get("frame")||null,ac_dc:f.get("acdc")||null,description:f.get("description")||null
-     };
-     if(session && e.id){
-       const {error}=await supabaseClient.from("equipment").update(payload).eq("id",e.id);
-       if(error)throw error;
-     }
-     Object.assign(e,{customer:customerName,jobId:jobNumber||"",type:payload.equipment_type,manufacturer:payload.manufacturer||"",
-       model:payload.model||"",serial:payload.serial_number||"",hp:payload.horsepower??"",voltage:payload.voltage||"",
-       amperage:payload.amperage||"",phase:payload.phase||"",frequency:payload.frequency||"",rpm:payload.rpm??"",
-       frame:payload.frame||"",acdc:payload.ac_dc||"",description:payload.description||""});
-     logAudit(`Updated equipment ${e.equipmentNumber}`);save();closeModal();render();
-   }catch(err){alert("Equipment was not saved: "+(err.message||err))}
- });
-}
-
-async function renderDatabasePanel(){
+function renderDatabasePanel(){
  const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
  let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
  el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> Customers → Jobs → Quotes → Invoices / A/R are database-backed. Inventory is connected for read/sync. Engineering, motors, time, IFTA, deliveries, documents and full accounting are next.</div><div id="dbMessage"></div>`;
@@ -213,7 +104,7 @@ function money(n){return "$"+Number(n||0).toLocaleString(undefined,{minimumFract
 function nav(view){
  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===view));
  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
- const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],equipment:["Equipment","Equipment master records and service history"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],"new-motors":["New Motors","New motor inventory"],quotes:["Quotes","Repair estimates and approvals"],sales:["Sales / POS & Invoices","Sales, invoices and payments"],billing:["Billing / A/R","Accounts receivable and Net 30"],accounting:["Accounting","General ledger and accounting exports"],deliveries:["Pickups / Deliveries","Schedule and track transportation"],fleet:["Fleet / IFTA","Mileage, gallons and quarterly IFTA"],labor:["Technician Time","Hands-on labor and timers"],timeslips:["Time Slips","Labor codes and time entries"],engineering:["Engineering","Field testing and engineering jobs"],schedule:["Scheduling / Dispatch","Jobs, crews and dispatch"],procedures:["Procedures / SOPs","Shop workflows and checklists"],maintenance:["Preventive Maintenance","Service schedules"],certifications:["Certifications / Training","Employee certifications"],reports:["Management Reports","Operations and financial reporting"],integrations:["Accounting / Integrations","Exports and integrations"],alerts:["Alerts / Action Center","Items needing attention"],ai:["Shop Assistant","AC Electric assistant"],users:["Users / Access","User roles and access"],admin:["Administration","System settings and database"]};
+ const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
  db.audit=db.audit||[];
 db.users=db.users||[
@@ -225,7 +116,7 @@ initSupabase();
 render();
 const motorParam=new URLSearchParams(location.search).get('motor'); if(motorParam && db.jobs.some(j=>j.id===motorParam)){setTimeout(()=>editJob(motorParam),100);}
 }
-document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>nav(b.dataset.view)));
+document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>nav(b.dataset.view));
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>nav(b.dataset.go));
 
 function ensureV4Data(){
@@ -380,7 +271,6 @@ function render(){
  const low=db.inventory.filter(i=>i.qty<=i.min);
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
  renderCustomers();renderJobs();renderInventory();renderNewMotors();
- renderEquipmentPage();
  renderSales();
  renderBilling();
  renderTimeSlips();
@@ -1770,7 +1660,7 @@ async function openNewEquipment(){
  });
 }
 
-async function openNewJob(){
+function openNewJob(){
  const session=await getCurrentSupabaseSession();
  openModal("New Motor / Breaker Job",`<div class="form-grid">
    <div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div>
