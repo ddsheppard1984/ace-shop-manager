@@ -33,7 +33,8 @@ function nav(view){
  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
  const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
- db.users=db.users||[
+ db.audit=db.audit||[];
+db.users=db.users||[
  {id:"U-1",name:"Prototype Admin",username:"admin",role:"Admin",active:true},
  {id:"U-2",name:"Prototype Supervisor",username:"supervisor",role:"Supervisor",active:true},
  {id:"U-3",name:"Prototype Technician",username:"tech1",role:"Technician",active:true}
@@ -225,6 +226,53 @@ function saveUser(id){
  if(!u.name||!u.username){alert("Enter a name and username.");return}
  save();closeModal();render();
 }
+
+
+const DEFAULT_PROCEDURES={
+ Receiving:["Verify customer and job","Photograph nameplate","Enter nameplate data","Record incoming condition","Create/attach QR label"],
+ Inspection:["Visual inspection","Initial electrical tests","Mechanical checks","Document findings","Determine repair scope"],
+ Disassembly:["Record as-found condition","Mark/identify components","Disassemble safely","Record parts removed","Photograph critical findings"],
+ Cleaning:["Wash/clean components","Dry components","Inspect after cleaning","Document condition"],
+ Repair:["Record repair operations","Record parts used","Record bearing/seal information","Record measurements","Technician sign-off"],
+ Assembly:["Verify parts","Install bearings/seals","Assemble motor","Verify mechanical clearances","Technician sign-off"],
+ Testing:["Perform required electrical tests","Perform required mechanical tests","Record results","Compare with acceptance criteria","Test technician sign-off"],
+ FinalQC:["Final inspection","Verify documentation","Verify photos","Supervisor/QC approval","Release for pickup/delivery"]
+};
+const ADMIN_DEFAULTS={company:{name:"AC Electric Corp.",phone:"",email:"",address:"",timezone:"America/New_York"},rates:{laborRate:0,taxRate:0,markup:0,quoteValidDays:30},delivery:{defaultDrivers:"",requireDeliverySignature:true,requireDamagePhoto:true},system:{retentionDays:3650,maintenanceMode:false}};
+function adminData(){db.admin=db.admin||JSON.parse(JSON.stringify(ADMIN_DEFAULTS));db.procedures=db.procedures||JSON.parse(JSON.stringify(DEFAULT_PROCEDURES));return db.admin}
+function renderAdmin(){
+ const el=document.getElementById("adminPanel");if(!el)return;
+ adminData();
+ el.innerHTML=`<div class="muted">Choose a category above to edit settings.</div>`;
+ document.querySelectorAll(".admin-card").forEach(b=>b.onclick=()=>openAdminTab(b.dataset.adminTab));
+}
+function openAdminTab(tab){
+ adminData();const a=db.admin;const el=document.getElementById("adminPanel");let html="";
+ if(tab==="company")html=`<h3>Company / Shop Information</h3><div class="form-grid">${motorField("Company Name","a_company",a.company.name)}${motorField("Phone","a_phone",a.company.phone)}${motorField("Email","a_email",a.company.email)}${motorField("Time Zone","a_timezone",a.company.timezone)}${motorText("Address","a_address",a.company.address,2)}</div><button class="primary" onclick="saveAdminTab('company')">Save Company Settings</button>`;
+ if(tab==="roles")html=`<h3>Roles & Permissions</h3><div class="role-admin-list">${Object.entries(USER_ROLES).map(([r,p])=>`<div class="role-admin"><b>${esc(r)}</b><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div><div class="notice">Role permissions will become enforced by the production authentication system. The prototype displays the planned access model.</div>`;
+ if(tab==="rates")html=`<h3>Labor & Quote Rates</h3><div class="form-grid">${motorField("Default Labor Rate","a_laborRate",a.rates.laborRate,"number")}${motorField("Tax Rate %","a_taxRate",a.rates.taxRate,"number")}${motorField("Default Parts Markup %","a_markup",a.rates.markup,"number")}${motorField("Quote Valid Days","a_quoteValidDays",a.rates.quoteValidDays,"number")}</div><button class="primary" onclick="saveAdminTab('rates')">Save Rate Settings</button>`;
+ if(tab==="procedures")html=`<h3>Shop Procedures</h3><div class="procedure-admin">${Object.entries(db.procedures).map(([k,items])=>`<div class="procedure-card"><b>${esc(k)}</b><ol>${items.map((x,i)=>`<li><input value="${esc(x)}" data-proc="${esc(k)}" data-index="${i}"></li>`).join("")}</ol><button class="secondary" onclick="addProcedure('${k}')">+ Add Procedure</button></div>`).join("")}</div><button class="primary" onclick="saveProcedures()">Save Procedures</button>`;
+ if(tab==="parts")html=`<h3>Parts / Bearings Catalog</h3><div class="notice">Prototype placeholder for the AC Electric parts catalog. Production version will support bearing numbers, manufacturers, seals, prices, suppliers, stock levels and approved substitutes.</div><button class="primary" onclick="alert('Parts catalog framework ready for the next build.')">Configure Catalog</button>`;
+ if(tab==="delivery")html=`<h3>Delivery Settings</h3><div class="form-grid">${motorText("Default Drivers","a_drivers",a.delivery.defaultDrivers,2)}<div class="field"><label>Require customer signature on delivery</label><select id="a_deliverySig"><option value="1" ${a.delivery.requireDeliverySignature?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDeliverySignature?"selected":""}>No</option></select></div><div class="field"><label>Require damage photo when damaged</label><select id="a_damagePhoto"><option value="1" ${a.delivery.requireDamagePhoto?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDamagePhoto?"selected":""}>No</option></select></div></div><button class="primary" onclick="saveAdminTab('delivery')">Save Delivery Settings</button>`;
+ if(tab==="audit")html=`<h3>Audit Log</h3><div class="audit-list">${(db.audit||[]).slice().reverse().map(x=>`<div><b>${esc(x.action)}</b> · ${esc(x.user||"System")}<span>${esc(x.at||"")}</span></div>`).join("")||empty("No activity recorded yet.")}</div>`;
+ if(tab==="system")html=`<h3>System / Production Readiness</h3><div class="notice"><b>Current prototype:</b> GitHub Pages + browser-local demo data. Do not use real customer, employee, signature or production job data here.</div><div class="system-checks"><div>🔐 Authentication: <b>Production required</b></div><div>🗄️ Managed database: <b>Production required</b></div><div>📷 Private photo storage: <b>Production required</b></div><div>💾 Automated backups: <b>Production required</b></div><div>📝 Audit logging: <b>Prototype framework</b></div><div>📱 iPhone/iPad/Windows: <b>Supported by web app</b></div></div>`;
+ el.innerHTML=html;
+}
+function saveAdminTab(tab){
+ adminData();
+ if(tab==="company")Object.assign(db.admin.company,{name:val("a_company"),phone:val("a_phone"),email:val("a_email"),timezone:val("a_timezone"),address:val("a_address")});
+ if(tab==="rates")Object.assign(db.admin.rates,{laborRate:Number(val("a_laborRate")||0),taxRate:Number(val("a_taxRate")||0),markup:Number(val("a_markup")||0),quoteValidDays:Number(val("a_quoteValidDays")||30)});
+ if(tab==="delivery")Object.assign(db.admin.delivery,{defaultDrivers:val("a_drivers"),requireDeliverySignature:val("a_deliverySig")==="1",requireDamagePhoto:val("a_damagePhoto")==="1"});
+ logAudit("Updated administration settings");
+ save();openAdminTab(tab);
+}
+function saveProcedures(){
+ document.querySelectorAll("[data-proc]").forEach(i=>{db.procedures[i.dataset.proc][Number(i.dataset.index)]=i.value});
+ logAudit("Updated shop procedures");save();openAdminTab("procedures");
+}
+function addProcedure(k){db.procedures[k].push("New procedure step");save();openAdminTab("procedures")}
+function logAudit(action,user="Prototype Admin"){db.audit=db.audit||[];db.audit.push({action,user,at:new Date().toLocaleString()});if(db.audit.length>500)db.audit.shift()}
+function val(id){return document.getElementById(id)?.value||""}
 
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();

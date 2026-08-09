@@ -139,3 +139,13 @@ HOSTING / DATABASE PLAN
 - Prototype: static GitHub Pages only; data is local/browser storage and is not suitable for real company data.
 - Production: web app + managed PostgreSQL database + private object storage for photos/documents + authentication + backups + monitoring.
 - We can build the production environment step-by-step without requiring the user to know coding or server administration.
+
+
+V1.2 ADMINISTRATION AREA
+- Added Administration section with Company, Roles & Permissions, Labor/Quote Rates, Procedures, Parts/Bearings, Delivery Settings, Audit Log and System/Production Readiness.
+- Company/shop settings are editable without changing code.
+- Labor rate, tax rate, markup and quote-validity defaults are configurable.
+- Workflow procedure checklists are configurable in the prototype.
+- Delivery signature and damaged-photo rules are configurable.
+- Audit log framework added for administrative changes.
+- Parts/Bearings catalog framework added for future inventory integration.
