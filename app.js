@@ -111,11 +111,21 @@ document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>nav(b.dataset.go
 
 function ensureV4Data(){
  db.schedules=db.schedules||[];
- db.procedures=db.procedures||[
+ const defaultProcedures=[
   {id:"SOP-001",name:"Motor Job-In",department:"Motor Repair",version:"1.0",status:"Active",steps:["Verify customer/job","Photograph nameplate","Record condition","Create motor master record"]},
   {id:"SOP-002",name:"Motor Inspection",department:"Motor Repair",version:"1.0",status:"Active",steps:["Electrical inspection","Mechanical inspection","Document findings","Supervisor review"]},
   {id:"SOP-003",name:"Breaker Certification",department:"Engineering",version:"1.0",status:"Draft",steps:["Visual inspection","Electrical tests","Mechanical tests","Record results","Engineer approval"]}
  ];
+ if(!Array.isArray(db.procedures)){
+  if(db.procedures && typeof db.procedures === "object"){
+   const converted=[];
+   Object.entries(db.procedures).forEach(([department,items])=>{
+    if(Array.isArray(items)) converted.push({id:`SOP-${department}`,name:`${department} Procedure`,department,version:"1.0",status:"Active",steps:items.map(String)});
+   });
+   db.procedures=converted;
+  } else db.procedures=JSON.parse(JSON.stringify(defaultProcedures));
+ }
+ if(!db.procedures.length) db.procedures=JSON.parse(JSON.stringify(defaultProcedures));
  db.maintenance=db.maintenance||[];
  db.employeeCerts=db.employeeCerts||[];
  db.attachments=db.attachments||[];
@@ -443,7 +453,7 @@ const DEFAULT_PROCEDURES={
  FinalQC:["Final inspection","Verify documentation","Verify photos","Supervisor/QC approval","Release for pickup/delivery"]
 };
 const ADMIN_DEFAULTS={company:{name:"AC Electric Corp.",phone:"",email:"",address:"",timezone:"America/New_York"},rates:{laborRate:0,taxRate:0,markup:0,quoteValidDays:30},delivery:{defaultDrivers:"",requireDeliverySignature:true,requireDamagePhoto:true},system:{retentionDays:3650,maintenanceMode:false}};
-function adminData(){db.admin=db.admin||JSON.parse(JSON.stringify(ADMIN_DEFAULTS));db.procedures=db.procedures||JSON.parse(JSON.stringify(DEFAULT_PROCEDURES));return db.admin}
+function adminData(){db.admin=db.admin||JSON.parse(JSON.stringify(ADMIN_DEFAULTS));ensureV4Data();return db.admin}
 function renderAdmin(){
  const el=document.getElementById("adminPanel");if(!el)return;
  adminData();
@@ -467,7 +477,7 @@ function openAdminTab(tab){
  if(tab==="company")html=`<h3>Company / Shop Information</h3><div class="form-grid">${motorField("Company Name","a_company",a.company.name)}${motorField("Phone","a_phone",a.company.phone)}${motorField("Email","a_email",a.company.email)}${motorField("Time Zone","a_timezone",a.company.timezone)}${motorText("Address","a_address",a.company.address,2)}</div><button class="primary" onclick="saveAdminTab('company')">Save Company Settings</button>`;
  if(tab==="roles")html=`<h3>Roles & Permissions</h3><div class="role-admin-list">${Object.entries(USER_ROLES).map(([r,p])=>`<div class="role-admin"><b>${esc(r)}</b><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div><div class="notice">Role permissions will become enforced by the production authentication system. The prototype displays the planned access model.</div>`;
  if(tab==="rates")html=`<h3>Labor & Quote Rates</h3><div class="form-grid">${motorField("Default Labor Rate","a_laborRate",a.rates.laborRate,"number")}${motorField("Tax Rate %","a_taxRate",a.rates.taxRate,"number")}${motorField("Default Parts Markup %","a_markup",a.rates.markup,"number")}${motorField("Quote Valid Days","a_quoteValidDays",a.rates.quoteValidDays,"number")}</div><button class="primary" onclick="saveAdminTab('rates')">Save Rate Settings</button>`;
- if(tab==="procedures")html=`<h3>Shop Procedures</h3><div class="procedure-admin">${Object.entries(db.procedures).map(([k,items])=>`<div class="procedure-card"><b>${esc(k)}</b><ol>${items.map((x,i)=>`<li><input value="${esc(x)}" data-proc="${esc(k)}" data-index="${i}"></li>`).join("")}</ol><button class="secondary" onclick="addProcedure('${k}')">+ Add Procedure</button></div>`).join("")}</div><button class="primary" onclick="saveProcedures()">Save Procedures</button>`;
+  if(tab==="procedures")html=`<h3>Shop Procedures</h3><div class="procedure-admin">${db.procedures.map((p,i)=>`<div class="procedure-card"><b>${esc(p.name)}</b><div class="muted">${esc(p.department)} · v${esc(p.version)} · ${esc(p.status)}</div><ol>${(p.steps||[]).map((x,j)=>`<li><input value="${esc(x)}" data-proc-index="${i}" data-step-index="${j}"></li>`).join("")}</ol><button class="secondary" onclick="addProcedureStep(${i})">+ Add Step</button></div>`).join("")}</div><button class="primary" onclick="saveProcedures()">Save Procedures</button>`;
  if(tab==="imports")html=`<h3>Import / Export</h3>
   <div class="import-grid">
    <div class="import-card"><b>👥 Customers</b><p>Import an existing customer list from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('customers')">📥 Import Customers</button><button class="secondary" onclick="exportCustomersCsv()">📤 Export Customers</button><div class="muted">Expected columns: Name, Contact, Phone, Email, Address, Notes</div></div>
