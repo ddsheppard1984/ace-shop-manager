@@ -345,3 +345,9 @@ V3.4 AUTOMATIC ENGINEERING E-NUMBERS
 - Users no longer type the engineering job number when creating an Engineering Field Service job.
 - The E-number is used as the central reference for engineering time slips, test/certification records, reports and billing.
 - Existing non-E engineering job numbers are preserved; newly created engineering jobs use the next available E-number.
+
+
+V3.5 ENGINEERING EQUIPMENT TYPE
+- Added Engineering Field Service as a selectable equipment/job type in the central job workflow where equipment types are selected.
+- Engineering work can now be identified alongside Motor, Generator and other job types.
+- Engineering-specific jobs continue to use their automatic E-#### number and link to Engineering Field Service, testing, time and billing.
