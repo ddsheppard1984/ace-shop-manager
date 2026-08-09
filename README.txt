@@ -60,3 +60,15 @@ V0.3 DRIVER PICKUP / DELIVERY
 - Completion requires a selected job, customer name, signature, and (for damaged conditions) at least one photo.
 - Completion records date/time and status.
 - Prototype stores data locally; production must use authenticated driver accounts, secure cloud storage, encrypted signatures/photos, GPS, audit logs, and retention controls.
+
+
+V0.4 MOTOR MASTER RECORD
+- Dedicated Motor Master Records section.
+- Permanent equipment record tied to each job.
+- Identification: manufacturer, model, serial, AC/DC, phase, power, voltage, amps, RPM, frame, frequency, service factor, enclosure, insulation class and notes.
+- Mechanical: DE/ODE bearings, bearing manufacturer, seals, shaft dimensions/fits, endplay, air gap, balance and rotor condition.
+- Electrical: winding resistance, insulation resistance, PI, surge test, phase balance, grounding, initial and final test results.
+- History tab with workflow completion and supervisor override history.
+- Chain-of-custody summary and complete job photo gallery.
+- QR code is planned for the next iteration; the record structure is ready for a QR-linked motor ID.
+- Prototype data remains local to the browser. Production requires a secure database, authenticated users, audit logging, secure object storage, GPS and controlled access.

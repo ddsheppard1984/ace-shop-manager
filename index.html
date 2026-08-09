@@ -19,6 +19,7 @@
       <button class="nav active" data-view="dashboard">Dashboard</button>
       <button class="nav" data-view="customers">Customers</button>
       <button class="nav" data-view="jobs">Jobs / Motors</button>
+      <button class="nav" data-view="motor-records">Motor Master Records</button>
       <button class="nav" data-view="inventory">Inventory</button>
       <button class="nav" data-view="quotes">Quotes</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
@@ -62,6 +63,14 @@
     <section id="jobs" class="view">
       <div class="toolbar"><input id="jobSearch" placeholder="Search job, customer, serial number..."><button class="primary" id="addJob">+ New Job</button></div>
       <div class="panel"><div id="jobTable"></div></div>
+    </section>
+
+    <section id="motor-records" class="view">
+      <div class="toolbar"><input id="motorRecordSearch" placeholder="Search job, serial, customer, manufacturer..."><button class="primary" id="addMotorRecord">+ Motor Record</button></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Permanent Motor History</h2><span class="muted">Identification, mechanical, electrical, repair, photos & chain of custody</span></div>
+        <div id="motorRecordTable"></div>
+      </div>
     </section>
 
     <section id="inventory" class="view">

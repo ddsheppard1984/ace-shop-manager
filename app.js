@@ -31,7 +31,7 @@ function money(n){return "$"+Number(n||0).toLocaleString(undefined,{minimumFract
 function nav(view){
  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===view));
  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
- const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
+ const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
  render();
 }
@@ -50,6 +50,125 @@ function render(){
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
 function empty(t="No records yet"){return `<div class="empty">${t}</div>`}
+
+function motorRecordForJob(j){
+ j.motor=j.motor||{};
+ return j.motor;
+}
+function renderMotorRecords(){
+ const q=(document.getElementById("motorRecordSearch")?.value||"").toLowerCase();
+ const a=db.jobs.filter(j=>JSON.stringify(j).toLowerCase().includes(q));
+ document.getElementById("motorRecordTable").innerHTML=
+ `<div class="row head"><div>Job / Customer</div><div>Equipment</div><div>Serial</div><div>Progress</div></div>`+
+ a.map(j=>`<div class="row clickable" onclick="openMotorRecord('${j.id}')">
+ <div><strong>${esc(j.id)}</strong><div class="muted">${esc(j.customer)}</div></div>
+ <div>${esc(j.type)}<div class="muted">${j.motor?.manufacturer?esc(j.motor.manufacturer):"Manufacturer not entered"} ${j.hp?j.hp+" HP":""}</div></div>
+ <div>${esc(j.serial||"—")}</div>
+ <div>${jobPct(j)}%</div></div>`).join("")||empty("No motor records yet.");
+}
+function motorField(label,name,value="",type="text"){
+ return `<div class="field"><label>${label}</label><input name="${name}" value="${esc(value??"")}" type="${type}"></div>`;
+}
+function motorText(label,name,value="",rows=3){
+ return `<div class="field full"><label>${label}</label><textarea name="${name}" rows="${rows}">${esc(value??"")}</textarea></div>`;
+}
+function openMotorRecord(id){
+ const j=db.jobs.find(x=>x.id===id); if(!j)return;
+ const m=motorRecordForJob(j);
+ const photos=(j.photos||[]).map((p,n)=>`<div class="photo"><img src="${p.data}"><small>${esc(p.stage||"Job")} · ${esc(p.name||"photo")}</small></div>`).join("")||empty("No photos attached.");
+ const overrides=(j.overrides||[]).map(o=>`<li>${esc(o.from||"Step")} → override · ${esc(o.at||"")}</li>`).join("")||"<li>None</li>";
+ openModal("Motor Master Record — "+j.id,`
+  <div class="record-banner">
+   <div><b>${esc(j.customer)}</b><div class="muted">${esc(j.type)} · ${esc(j.serial||"No serial")}</div></div>
+   ${badge(j.stage)}
+  </div>
+  <div class="tabs">
+   <button type="button" class="tab active" data-tab="ident">Identification</button>
+   <button type="button" class="tab" data-tab="mech">Mechanical</button>
+   <button type="button" class="tab" data-tab="elec">Electrical</button>
+   <button type="button" class="tab" data-tab="history">History / Chain</button>
+  </div>
+  <div class="record-tab active" id="tab-ident">
+   <div class="form-grid">
+    ${motorField("Manufacturer","manufacturer",m.manufacturer)}
+    ${motorField("Model","model",m.model)}
+    ${motorField("Serial Number","serial",j.serial)}
+    ${motorField("AC / DC","acdc",m.acdc)}
+    ${motorField("Phase","phase",m.phase)}
+    ${motorField("HP / kW","power",m.power||j.hp)}
+    ${motorField("Voltage","voltage",m.voltage||j.voltage)}
+    ${motorField("Amps","amps",m.amps)}
+    ${motorField("RPM","rpm",m.rpm)}
+    ${motorField("Frame","frame",m.frame)}
+    ${motorField("Frequency","frequency",m.frequency)}
+    ${motorField("Service Factor","serviceFactor",m.serviceFactor)}
+    ${motorField("Enclosure","enclosure",m.enclosure)}
+    ${motorField("Insulation Class","insulationClass",m.insulationClass)}
+    ${motorText("Nameplate / Identification Notes","identNotes",m.identNotes)}
+   </div>
+   <div class="photo-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','Nameplate')">📷 Add Nameplate Photo</button></div>
+  </div>
+  <div class="record-tab" id="tab-mech">
+   <div class="form-grid">
+    ${motorField("DE Bearing","bearingDE",m.bearingDE)}
+    ${motorField("ODE Bearing","bearingODE",m.bearingODE)}
+    ${motorField("Bearing Manufacturer","bearingManufacturer",m.bearingManufacturer)}
+    ${motorField("DE Seal","sealDE",m.sealDE)}
+    ${motorField("ODE Seal","sealODE",m.sealODE)}
+    ${motorField("Shaft Diameter","shaftDiameter",m.shaftDiameter)}
+    ${motorField("Shaft Length","shaftLength",m.shaftLength)}
+    ${motorField("Shaft / Fit Notes","shaftFits",m.shaftFits)}
+    ${motorField("Endplay","endplay",m.endplay)}
+    ${motorField("Air Gap","airGap",m.airGap)}
+    ${motorField("Balance","balance",m.balance)}
+    ${motorText("Rotor / Mechanical Condition","rotorCondition",m.rotorCondition)}
+   </div>
+  </div>
+  <div class="record-tab" id="tab-elec">
+   <div class="form-grid">
+    ${motorField("Winding Resistance","windingResistance",m.windingResistance)}
+    ${motorField("Insulation Resistance","insulationResistance",m.insulationResistance)}
+    ${motorField("PI","pi",m.pi)}
+    ${motorField("Surge Test","surgeTest",m.surgeTest)}
+    ${motorField("Phase Balance","phaseBalance",m.phaseBalance)}
+    ${motorField("Grounding","grounding",m.grounding)}
+    ${motorText("Initial Test Results","initialTests",m.initialTests)}
+    ${motorText("Final Test Results","finalTests",m.finalTests)}
+   </div>
+  </div>
+  <div class="record-tab" id="tab-history">
+   <div class="history-grid">
+    <div><h3>Workflow</h3><div class="mini-history">${WORKFLOW.map((w,i)=>`<div class="${(j.completed||{})[w[0]]?'history-done':''}"><span>${i+1}</span>${esc(w[1])}</div>`).join("")}</div></div>
+    <div><h3>Supervisor Overrides</h3><ul>${overrides}</ul></div>
+   </div>
+   <h3>Chain of Custody</h3>
+   <div class="chain">
+    <div>🚚 Pickup / Delivery<br><small>${(j.pickupDelivery||"Not linked")}</small></div>
+    <div>🏭 Receiving<br><small>${(j.receivedAt||"Not recorded")}</small></div>
+    <div>🔧 Repair<br><small>Tracked by workflow</small></div>
+    <div>🚚 Return Delivery<br><small>Tracked in deliveries</small></div>
+   </div>
+  </div>
+  <h3>All Job Photos</h3><div class="photos">${photos}</div>
+  <div class="form-actions"><button type="button" class="primary" onclick="saveMotorRecord('${j.id}')">Save Motor Record</button></div>
+ `,()=>{});
+ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+   document.querySelectorAll(".record-tab").forEach(x=>x.classList.remove("active"));
+   t.classList.add("active");document.getElementById("tab-"+t.dataset.tab).classList.add("active");
+ });
+}
+function saveMotorRecord(id){
+ const j=db.jobs.find(x=>x.id===id);j.motor=j.motor||{};
+ document.querySelectorAll("#modalForm input[name],#modalForm textarea[name]").forEach(el=>{
+   if(el.name==="serial") j.serial=el.value; else j.motor[el.name]=el.value;
+ });
+ save();closeModal();render();
+}
+function openNewMotorRecord(){
+ openNewJob();
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
@@ -194,7 +313,8 @@ function openNewQuote(){
 function openNewDelivery(){
  openModal("Schedule Pickup / Delivery",`<div class="form-grid"><div class="field"><label>Type</label><select name="type"><option>Pickup</option><option>Delivery</option></select></div><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Driver</label><select name="driver"><option>Unassigned</option><option>Driver 1</option><option>Driver 2</option><option>Driver 3</option><option>Driver 4</option></select></div></div><div class="form-actions"><button class="primary">Schedule</button></div>`,f=>db.deliveries.push({id:"D-"+(db.deliveries.length+3001),type:f.get("type"),customer:f.get("customer"),date:f.get("date"),driver:f.get("driver"),status:"Scheduled",jobs:[],condition:"",notes:"",photos:[],signature:null}));
 }
-["customerSearch","jobSearch","inventorySearch"].forEach(id=>document.getElementById(id).addEventListener("input",render));
+["customerSearch","jobSearch","inventorySearch","motorRecordSearch"].forEach(id=>document.getElementById(id)?.addEventListener("input",render));
+document.getElementById("addMotorRecord")?.addEventListener("click",openNewMotorRecord);
 
 const WORKFLOW=[
 ["Receiving","Job In / Receiving",["Confirm customer/contact","Record nameplate and equipment data","Record customer complaint/scope","Take incoming-condition photos","Assign job number/tag"]],
