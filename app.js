@@ -61,7 +61,7 @@ async function loadCoreFromSupabase(){
   supabaseClient.from("invoices").select("invoice_number,total,balance_due,status,invoice_date,due_date,customers(company_name)").order("invoice_number")
  ]);
  for(const r of [c,j,i,q,inv])if(r.error)throw r.error;
- db.customers=(c.data||[]).map(x=>({id:x.id,name:x.company_name,contact:x.contact_name||"",phone:x.phone||"",email:x.email||"",notes:x.notes||""}));
+ db.customers=(c.data||[]).map(x=>({id:x.id,customerNumber:x.customer_number||"",name:x.company_name,contact:x.contact_name||"",phone:x.phone||"",email:x.email||"",notes:x.notes||""}));
  db.jobs=(j.data||[]).map(x=>({id:x.job_number,customer:x.customers?.company_name||"",type:x.equipment_type||"",hp:"",voltage:"",serial:"",stage:x.status||"Jobbed In",priority:x.priority||"Normal",notes:x.notes||x.description||""}));
  db.inventory=(i.data||[]).map(x=>({part:x.part_number,desc:x.description,qty:Number(x.quantity||0),min:Number(x.minimum_quantity||0),cost:Number(x.unit_cost||0)}));
  db.quotes=(q.data||[]).map(x=>({id:x.quote_number,customer:x.customers?.company_name||"",job:"",amount:Number(x.total||0),status:x.status||"Draft"}));
@@ -83,7 +83,7 @@ async function saveSupabaseSettings(){
 async function renderDatabasePanel(){
  const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
  let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
- el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> customers, jobs, inventory, quotes and invoices are connected first. We will migrate engineering, motors, time, IFTA, deliveries, documents and accounting in the next connection pass.</div><div id="dbMessage"></div>`;
+ el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> Customers → Jobs → Quotes → Invoices / A/R are database-backed. Inventory is connected for read/sync. Engineering, motors, time, IFTA, deliveries, documents and full accounting are next.</div><div id="dbMessage"></div>`;
  document.getElementById("saveSupa").onclick=saveSupabaseSettings; document.getElementById("supaLogin").onclick=async()=>{try{await signInSupabase()}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}}; document.getElementById("supaLogout").onclick=signOutSupabase;
  document.getElementById("supaLoad").onclick=async()=>{try{await loadCoreFromSupabase();alert("Database data loaded into the application.")}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}};
  document.getElementById("supaPush").onclick=async()=>{try{await syncCoreToSupabase();document.getElementById("dbMessage").innerHTML='<div class="notice">Core prototype data pushed to PostgreSQL.</div>'}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}};
@@ -889,16 +889,45 @@ function addNewJobForInvoice(jobId,customer){
  db.jobs.push({id:jobId,customer:customer||"",type:"",hp:"",voltage:"",serial:"",stage:"Jobbed In",priority:"Normal",notes:"",createdAt:new Date().toISOString()});
  return true;
 }
-function saveInvoice(){
+async function saveInvoice(){
  const customer=document.getElementById("inv_customer").value,date=document.getElementById("inv_date").value,due=document.getElementById("inv_due").value,job=getInvoiceJobNumber(),desc=document.getElementById("inv_desc").value.trim(),qty=Number(document.getElementById("inv_qty").value||0),price=Number(document.getElementById("inv_price").value||0),tax=Number(document.getElementById("inv_tax").value||0);
  if(!customer||!job||!desc||qty<=0||price<0){alert("Select a customer, select an existing job or add a new job number, and enter a description and valid price.");return}
- if(document.getElementById("inv_job_select").value==="__NEW__"){
-   if(!/^[A-Za-z0-9][A-Za-z0-9._-]{1,30}$/.test(job)){alert("Enter a valid new job number (letters, numbers, hyphen, dot or underscore).");return}
-   if(!addNewJobForInvoice(job,customer)){alert("That job number already exists. Please select it from the list.");return}
- }
- const subtotal=qty*price,total=subtotal+(subtotal*tax/100);
- db.invoices.push({id:"I-"+(db.invoices.length+1),number:nextNumber("INV",db.invoices),customer,date,dueDate:due,jobId:job,jobNumber:job,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:0,status:"Open",createdAt:new Date().toISOString()});
- logAudit("Created invoice");save();closeModal();render();
+ if(document.getElementById("inv_job_select").value==="__NEW__" && !/^[A-Za-z0-9][A-Za-z0-9._-]{1,30}$/.test(job)){alert("Enter a valid new job number (letters, numbers, hyphen, dot or underscore).");return}
+ const subtotal=qty*price,total=subtotal+(subtotal*tax/100),session=await getCurrentSupabaseSession();
+ try{
+   if(session){
+     const customerId=await dbCustomerIdByName(customer); if(!customerId)throw new Error("Could not find the selected customer.");
+     let jobRow=await supabaseClient.from("jobs").select("id,job_number,customers(company_name)").eq("job_number",job).maybeSingle();
+     if(jobRow.error)throw jobRow.error;
+     if(!jobRow.data && document.getElementById("inv_job_select").value==="__NEW__"){
+       const {data:j,error:je}=await supabaseClient.from("jobs").insert({
+         job_number:job,customer_id:customerId,equipment_type:"",job_type:"Repair",description:desc,status:"Jobbed In",priority:"Normal",notes:"Created from invoice"
+       }).select("id,job_number,status,priority,notes,customers(company_name)").single();
+       if(je)throw je;
+       jobRow={data:j};
+       db.jobs.push({id:j.job_number,customer:j.customers?.company_name||customer,type:"",hp:"",voltage:"",serial:"",
+         stage:j.status,priority:j.priority,notes:j.notes});
+     }
+     if(!jobRow.data)throw new Error("The selected job number was not found.");
+     const invoiceNumber=await nextRemoteNumber("invoices","invoice_number","INV",1001);
+     const dueDate=due||new Date(new Date(date+"T00:00:00").getTime()+30*86400000).toISOString().slice(0,10);
+     const {data:inv,error}=await supabaseClient.from("invoices").insert({
+       invoice_number:invoiceNumber,customer_id:customerId,job_id:jobRow.data.id,invoice_date:date,due_date:dueDate,
+       status:"Open",subtotal,tax,total,balance_due:total
+     }).select("id,invoice_number,total,balance_due,status,invoice_date,due_date,job_id,customers(company_name)").single();
+     if(error)throw error;
+     db.invoices.push({id:inv.id,number:inv.invoice_number,customer:inv.customers?.company_name||customer,
+       date:inv.invoice_date,dueDate:inv.due_date,jobId:job,jobNumber:job,items:[{description:desc,qty,unitPrice:price}],
+       subtotal,tax,total:Number(inv.total||total),paid:0,balance:Number(inv.balance_due||total),status:inv.status,createdAt:new Date().toISOString()});
+     logAudit(`Created invoice ${invoiceNumber} in database`);
+   }else{
+     if(document.getElementById("inv_job_select").value==="__NEW__" && !addNewJobForInvoice(job,customer)){alert("That job number already exists. Please select it from the list.");return}
+     db.invoices.push({id:"I-"+(db.invoices.length+1),number:nextNumber("INV",db.invoices),customer,date,
+       dueDate:due||new Date(new Date(date+"T00:00:00").getTime()+30*86400000).toISOString().slice(0,10),
+       jobId:job,jobNumber:job,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:0,status:"Open",createdAt:new Date().toISOString()});
+   }
+   save();closeModal();render();
+ }catch(e){alert("Invoice was not saved to the database: "+(e.message||e))}
 }
 
 
@@ -931,16 +960,35 @@ function renderBilling(){
  }).join("");
  table.innerHTML=`<div class="row head billing-grid"><div>Invoice</div><div>Customer</div><div>Invoice Date</div><div>Due</div><div>Total</div><div>Paid</div><div>Balance</div><div>Status</div><div></div></div>${rows||empty("No invoices yet.")}`;
 }
-function recordInvoicePayment(id){
- ensureBillingData();const inv=db.invoices.find(i=>i.id===id);if(!inv)return;
+async function recordInvoicePayment(id){
+ ensureBillingData();const inv=db.invoices.find(x=>x.id===id);if(!inv)return;
  const bal=invoiceBalance(inv);if(bal<=0.009){alert("This invoice is already paid.");return}
- const raw=prompt(`Invoice ${inv.number}\nOutstanding balance: ${money(bal)}\n\nEnter payment amount:`,bal.toFixed(2));if(raw===null)return;
+ const raw=prompt(`Invoice ${inv.number}
+Outstanding balance: ${money(bal)}
+
+Enter payment amount:`,bal.toFixed(2));if(raw===null)return;
  const amt=Number(raw);if(!Number.isFinite(amt)||amt<=0||amt>bal){alert("Enter a payment amount greater than zero and no more than the outstanding balance.");return}
- inv.paid=Number(inv.paid||0)+amt;
- inv.lastPaymentDate=new Date().toISOString().slice(0,10);
- inv.status=invoiceStatus(inv);
- db.payments=db.payments||[];db.payments.push({id:"PAY-"+(db.payments.length+1),invoiceId:id,invoiceNumber:inv.number,customer:inv.customer,amount:amt,date:inv.lastPaymentDate});
- logAudit(`Recorded payment on ${inv.number}`);save();render();
+ const session=await getCurrentSupabaseSession();
+ try{
+   if(session){
+     const {data:remote,error:fe}=await supabaseClient.from("invoices").select("id,total,balance_due").eq("invoice_number",inv.number).maybeSingle();
+     if(fe)throw fe;
+     if(!remote)throw new Error("Invoice was not found in the database.");
+     const newBalance=Math.max(0,Number(remote.balance_due||0)-amt),newStatus=newBalance<=0.009?"Paid":"Open";
+     const {error:ue}=await supabaseClient.from("invoices").update({balance_due:newBalance,status:newStatus}).eq("id",remote.id);
+     if(ue)throw ue;
+     const {data:pay,error:pe}=await supabaseClient.from("payments").insert({
+       invoice_id:remote.id,payment_date:new Date().toISOString().slice(0,10),amount:amt,payment_method:"Manual"
+     }).select("id").single();
+     if(pe)throw pe;
+     inv.paid=Number(inv.paid||0)+amt;inv.balance=newBalance;inv.lastPaymentDate=new Date().toISOString().slice(0,10);inv.status=newStatus;
+     db.payments=db.payments||[];db.payments.push({id:pay.id,invoiceId:inv.id,invoiceNumber:inv.number,customer:inv.customer,amount:amt,date:inv.lastPaymentDate});
+   }else{
+     inv.paid=Number(inv.paid||0)+amt;inv.lastPaymentDate=new Date().toISOString().slice(0,10);inv.status=invoiceStatus(inv);
+     db.payments=db.payments||[];db.payments.push({id:"PAY-"+(db.payments.length+1),invoiceId:id,invoiceNumber:inv.number,customer:inv.customer,amount:amt,date:inv.lastPaymentDate});
+   }
+   logAudit(`Recorded payment on ${inv.number}`);save();render();
+ }catch(e){alert("Payment was not saved to the database: "+(e.message||e))}
 }
 
 
@@ -1467,15 +1515,118 @@ document.getElementById("addInventory").onclick=openNewInventory;
 document.getElementById("addQuote").onclick=openQuoteBuilder;
 document.getElementById("addDelivery").onclick=openNewDelivery;
 function customerOptions(){return db.customers.map(c=>`<option>${esc(c.name)}</option>`).join("")}
-function openNewCustomer(){
- openModal("New Customer",`<div class="form-grid"><div class="field"><label>Company / Name</label><input name="name" required></div><div class="field"><label>Contact</label><input name="contact"></div><div class="field"><label>Phone</label><input name="phone"></div><div class="field"><label>Email</label><input name="email" type="email"></div></div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Customer</button></div>`,f=>{db.customers.push({id:Date.now(),name:f.get("name"),contact:f.get("contact"),phone:f.get("phone"),email:f.get("email")})});
+
+async function getCurrentSupabaseSession(){
+ if(!supabaseClient)return null;
+ try{return (await supabaseClient.auth.getSession()).data.session||null}catch(e){return null}
 }
-function editCustomer(id){
+async function nextRemoteNumber(table,column,prefix,start){
+ if(!supabaseClient)return `${prefix}-${start}`;
+ const {data,error}=await supabaseClient.from(table).select(column).like(column,`${prefix}-%`).order(column,{ascending:false}).limit(100);
+ if(error)throw error;
+ let max=start-1;
+ for(const row of (data||[])){
+   const m=String(row[column]||"").match(new RegExp("^"+prefix+"-(\\d+)$"));
+   if(m)max=Math.max(max,Number(m[1]));
+ }
+ return `${prefix}-${max+1}`;
+}
+async function dbCustomerIdByName(name){
+ const local=(db.customers||[]).find(c=>c.name===name);
+ if(local && local.id && String(local.id).length>20)return local.id;
+ const {data,error}=await supabaseClient.from("customers").select("id").eq("company_name",name).maybeSingle();
+ if(error)throw error;
+ return data?.id||null;
+}
+
+async function openNewCustomer(){
+ const session=await getCurrentSupabaseSession();
+ openModal("New Customer",`<div class="form-grid">
+   <div class="field"><label>Customer #</label><input name="customerNumber" placeholder="Auto-generated"></div>
+   <div class="field"><label>Company / Name</label><input name="name" required></div>
+   <div class="field"><label>Contact</label><input name="contact"></div>
+   <div class="field"><label>Phone</label><input name="phone"></div>
+   <div class="field"><label>Email</label><input name="email" type="email"></div>
+   <div class="field full"><label>Notes</label><textarea name="notes" rows="3"></textarea></div>
+ </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Customer</button></div>`,
+ async f=>{
+   const name=f.get("name").trim(); if(!name){alert("Company / Name is required.");return}
+   try{
+     if(session){
+       const customerNumber=(f.get("customerNumber")||"").trim()||await nextRemoteNumber("customers","customer_number","C",1001);
+       const {data,error}=await supabaseClient.from("customers").insert({
+         customer_number:customerNumber,company_name:name,contact_name:f.get("contact")||null,
+         phone:f.get("phone")||null,email:f.get("email")||null,notes:f.get("notes")||null
+       }).select("id,customer_number,company_name,contact_name,phone,email,notes").single();
+       if(error)throw error;
+       db.customers.push({id:data.id,customerNumber:data.customer_number,name:data.company_name,contact:data.contact_name||"",phone:data.phone||"",email:data.email||"",notes:data.notes||""});
+     }else{
+       db.customers.push({id:Date.now(),customerNumber:f.get("customerNumber")||`C-${Date.now()}`,name,contact:f.get("contact"),phone:f.get("phone"),email:f.get("email"),notes:f.get("notes")});
+     }
+     logAudit("Created customer");save();closeModal();render();
+   }catch(e){alert("Customer was not saved to the database: "+(e.message||e))}
+ });
+}
+async function editCustomer(id){
  const c=db.customers.find(x=>x.id===id); if(!c)return;
- openModal("Edit Customer",`<div class="form-grid"><div class="field"><label>Company / Name</label><input name="name" value="${esc(c.name)}" required></div><div class="field"><label>Contact</label><input name="contact" value="${esc(c.contact)}"></div><div class="field"><label>Phone</label><input name="phone" value="${esc(c.phone)}"></div><div class="field"><label>Email</label><input name="email" value="${esc(c.email)}"></div></div><div class="form-actions"><button class="primary">Save Changes</button></div>`,f=>Object.assign(c,{name:f.get("name"),contact:f.get("contact"),phone:f.get("phone"),email:f.get("email")}));
+ const session=await getCurrentSupabaseSession();
+ openModal("Edit Customer",`<div class="form-grid">
+   <div class="field"><label>Customer #</label><input name="customerNumber" value="${esc(c.customerNumber||"")}" readonly></div>
+   <div class="field"><label>Company / Name</label><input name="name" value="${esc(c.name)}" required></div>
+   <div class="field"><label>Contact</label><input name="contact" value="${esc(c.contact)}"></div>
+   <div class="field"><label>Phone</label><input name="phone" value="${esc(c.phone)}"></div>
+   <div class="field"><label>Email</label><input name="email" value="${esc(c.email)}"></div>
+   <div class="field full"><label>Notes</label><textarea name="notes" rows="3">${esc(c.notes||"")}</textarea></div>
+ </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Changes</button></div>`,
+ async f=>{
+   const name=f.get("name").trim(); if(!name){alert("Company / Name is required.");return}
+   try{
+     if(session && c.id){
+       const {data,error}=await supabaseClient.from("customers").update({
+         company_name:name,contact_name:f.get("contact")||null,phone:f.get("phone")||null,
+         email:f.get("email")||null,notes:f.get("notes")||null
+       }).eq("id",c.id).select("id,customer_number,company_name,contact_name,phone,email,notes").single();
+       if(error)throw error;
+       Object.assign(c,{id:data.id,customerNumber:data.customer_number,name:data.company_name,contact:data.contact_name||"",phone:data.phone||"",email:data.email||"",notes:data.notes||""});
+     }else Object.assign(c,{name,contact:f.get("contact"),phone:f.get("phone"),email:f.get("email"),notes:f.get("notes")});
+     logAudit("Updated customer");save();closeModal();render();
+   }catch(e){alert("Customer was not saved to the database: "+(e.message||e))}
+ });
 }
-function openNewJob(){
- openModal("New Motor / Breaker Job",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Equipment Type</label><select name="type"><option>AC 3 Phase</option><option>AC Single Phase</option><option>DC Motor</option><option>Breaker</option><option>Pump</option><option>Generator</option><option>Other</option></select></div><div class="field"><label>Horsepower</label><input name="hp" type="number"></div><div class="field"><label>Voltage</label><input name="voltage"></div><div class="field"><label>Serial Number</label><input name="serial"></div><div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Rush</option></select></div><div class="field full"><label>Customer Complaint / Notes</label><textarea name="notes" rows="3"></textarea></div></div><div class="form-actions"><button class="primary">Create Job</button></div>`,f=>{const n=db.jobs.length+1001;db.jobs.push({id:"J-"+n,customer:f.get("customer"),type:f.get("type"),hp:f.get("hp"),voltage:f.get("voltage"),serial:f.get("serial"),stage:"Receiving",priority:f.get("priority"),notes:f.get("notes"),completed:{},photos:[]})});
+async function openNewJob(){
+ const session=await getCurrentSupabaseSession();
+ openModal("New Motor / Breaker Job",`<div class="form-grid">
+   <div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div>
+   <div class="field"><label>Equipment Type</label><select name="type"><option>AC 3 Phase</option><option>AC Single Phase</option><option>DC Motor</option><option>Breaker</option><option>Pump</option><option>Generator</option><option>Engineering Field Service</option><option>Other</option></select></div>
+   <div class="field"><label>Horsepower</label><input name="hp" type="number"></div>
+   <div class="field"><label>Voltage</label><input name="voltage"></div>
+   <div class="field"><label>Serial Number</label><input name="serial"></div>
+   <div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Rush</option></select></div>
+   <div class="field full"><label>Customer Complaint / Notes</label><textarea name="notes" rows="3"></textarea></div>
+ </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Create Job</button></div>`,
+ async f=>{
+   const customer=f.get("customer"),type=f.get("type"),notes=f.get("notes")||"";
+   if(!customer){alert("Select a customer.");return}
+   try{
+     const n=session?await nextRemoteNumber("jobs","job_number","J",1001):`J-${db.jobs.length+1001}`;
+     if(session){
+       const customerId=await dbCustomerIdByName(customer);
+       if(!customerId)throw new Error("Could not find the selected customer in the database.");
+       const {data,error}=await supabaseClient.from("jobs").insert({
+         job_number:n,customer_id:customerId,equipment_type:type,job_type:"Repair",
+         description:notes||type,status:"Receiving",priority:f.get("priority")||"Normal",notes
+       }).select("job_number,equipment_type,status,priority,notes,customers(company_name)").single();
+       if(error)throw error;
+       db.jobs.push({id:data.job_number,customer:data.customers?.company_name||customer,type:data.equipment_type||"",
+         hp:f.get("hp")||"",voltage:f.get("voltage")||"",serial:f.get("serial")||"",
+         stage:data.status||"Receiving",priority:data.priority||"Normal",notes:data.notes||""});
+     }else{
+       db.jobs.push({id:n,customer,type,hp:f.get("hp"),voltage:f.get("voltage"),serial:f.get("serial"),
+         stage:"Receiving",priority:f.get("priority"),notes,completed:{},photos:[]});
+     }
+     logAudit(`Created job ${n}`);save();closeModal();render();
+   }catch(e){alert("Job was not saved to the database: "+(e.message||e))}
+ });
 }
 
 function saveNameplateData(id){
@@ -1592,22 +1743,48 @@ function updateQuoteBuilderTotal(){
  const t=document.getElementById("quoteBuilderTotal");if(t)t.textContent=money(total);
  return total;
 }
-function saveQuoteBuilder(id){
+async function saveQuoteBuilder(id){
  const customer=document.getElementById("qcustomer").value;
  const items=getQuoteBuilderItems();
  if(!customer){alert("Select a customer.");return}
  if(!items.length){alert("Add at least one quote line.");return}
  const laborHours=Number(document.getElementById("qlaborhours").value||0),laborRate=Number(document.getElementById("qlaborrate").value||0),tax=Number(document.getElementById("qtax").value||0);
  const subtotal=quoteTotal(items),labor=laborHours*laborRate,total=subtotal+labor+tax;
- let q=id?db.quotes.find(x=>x.id===id):null;
- if(!q){q={id:"Q-"+(db.quotes.length+2001)};db.quotes.push(q)}
- Object.assign(q,{
-  customer,job:document.getElementById("qjob").value,date:document.getElementById("qdate").value,
-  validThrough:document.getElementById("qvalid").value,contact:document.getElementById("qcontact").value,
-  preparedBy:document.getElementById("qprepared").value,motorDescription:document.getElementById("qmotor").value,items,subtotal,laborHours,laborRate,labor,tax,
-  amount:total,status:document.getElementById("qstatus").value,notes:document.getElementById("qnotes").value
- });
- save();closeModal();render();
+ const session=await getCurrentSupabaseSession();
+ const jobNumber=(document.getElementById("qjob").value||"").trim();
+ try{
+   if(session){
+     const customerId=await dbCustomerIdByName(customer);
+     if(!customerId)throw new Error("Could not find the selected customer.");
+     const quoteNumber=id||await nextRemoteNumber("quotes","quote_number","Q",2001);
+     let payload={quote_number:quoteNumber,customer_id:customerId,status:document.getElementById("qstatus").value||"Draft",
+       subtotal:subtotal+labor,tax,total,valid_until:document.getElementById("qvalid").value||null,customer_approval_method:"Prototype"};
+     if(jobNumber){
+       const {data:job,error:je}=await supabaseClient.from("jobs").select("id").eq("job_number",jobNumber).maybeSingle();
+       if(je)throw je;
+       if(job?.id)payload.job_id=job.id;
+     }
+     const existing=await supabaseClient.from("quotes").select("id").eq("quote_number",quoteNumber).maybeSingle();
+     if(existing.error)throw existing.error;
+     let result=existing.data
+       ? await supabaseClient.from("quotes").update(payload).eq("id",existing.data.id).select("id,quote_number,total,status,job_id,customers(company_name)").single()
+       : await supabaseClient.from("quotes").insert(payload).select("id,quote_number,total,status,job_id,customers(company_name)").single();
+     if(result.error)throw result.error;
+     let q=db.quotes.find(x=>x.id===quoteNumber); if(!q){q={id:quoteNumber};db.quotes.push(q)}
+     Object.assign(q,{remoteId:result.data.id,customer:result.data.customers?.company_name||customer,job:jobNumber,
+       amount:Number(result.data.total||total),status:result.data.status||"Draft",date:document.getElementById("qdate").value,
+       items,subtotal,laborHours,laborRate,labor,tax,notes:document.getElementById("qnotes").value});
+     logAudit(`Saved quote ${quoteNumber} to database`);
+   }else{
+     let q=id?db.quotes.find(x=>x.id===id):null;
+     if(!q){q={id:"Q-"+(db.quotes.length+2001)};db.quotes.push(q)}
+     Object.assign(q,{customer,job:jobNumber,date:document.getElementById("qdate").value,validThrough:document.getElementById("qvalid").value,
+       contact:document.getElementById("qcontact").value,preparedBy:document.getElementById("qprepared").value,
+       motorDescription:document.getElementById("qmotor").value,items,subtotal,laborHours,laborRate,labor,tax,amount:total,
+       status:document.getElementById("qstatus").value,notes:document.getElementById("qnotes").value});
+   }
+   save();closeModal();render();
+ }catch(e){alert("Quote was not saved to the database: "+(e.message||e))}
 }
 
 function openNewDelivery(){
