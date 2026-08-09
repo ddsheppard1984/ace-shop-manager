@@ -448,7 +448,7 @@ function updateMileageTotals(){
  else v.innerHTML=`<b>✓ Mileage balances.</b> ${total.toFixed(1)} total miles accounted for by state.`;
 }
 function saveMileage(){
- const driver=document.getElementById("m_driver").value.trim(),date=document.getElementById("m_date").value,truck=document.getElementById("m_truck").value.trim(),start=Number(document.getElementById("m_start").value||0),end=Number(document.getElementById("m_end").value||0),total=end-start;
+ const driver=document.getElementById("m_driver").value.trim(),date=document.getElementById("m_date").value,truck=document.getElementById("m_truck").value.trim(),start=Number(document.getElementById("m_start").value||0),end=Number(document.getElementById("m_end").value||0),total=end-start; const q0=getQuarterInfo(date),qkey=`${q0.year}-Q${q0.quarter}`; db.iftaFinalized=db.iftaFinalized||{}; if(db.iftaFinalized[qkey]){alert("That IFTA quarter has been finalized and is locked. An authorized supervisor/admin must reopen it before adding or correcting mileage.");return}
  if(!driver||!date||!truck||start<0||end<start){alert("Enter driver, date, truck number and valid odometer readings.");return}
  const states={};document.querySelectorAll(".state-row").forEach(r=>{const st=r.querySelector(".state-code").value,mi=Number(r.querySelector(".state-miles").value||0),ga=Number(r.querySelector(".state-gallons").value||0);if(mi||ga)states[st]=(states[st]||{miles:0,gallons:0}),states[st].miles+=mi,states[st].gallons+=ga});
  const sm=Object.values(states).reduce((a,x)=>a+x.miles,0);
@@ -465,7 +465,7 @@ function getQuarterInfo(dateStr){
 }
 function renderIFTAAdmin(){
  const el=document.getElementById("iftaAdminLog");if(!el)return;
- db.mileage=db.mileage||[];
+ db.mileage=db.mileage||[];db.iftaFinalized=db.iftaFinalized||{};
  const now=getQuarterInfo(new Date().toISOString().slice(0,10));
  const selected=window.iftaAdminQuarter||`${now.year}-Q${now.quarter}`;
  const [yr,qq]=selected.split("-Q").map(Number);
@@ -477,21 +477,43 @@ function renderIFTAAdmin(){
  }));
  const totalMiles=entries.reduce((a,m)=>a+Number(m.totalMiles||0),0);
  const totalGallons=Object.values(states).reduce((a,x)=>a+x.gallons,0);
- el.innerHTML=`<div class="ifta-quarter-bar">
-   <div><b>IFTA Quarter Running Tally</b><div class="muted">Updates automatically as mileage entries are added.</div></div>
-   <select id="iftaQuarterSelect">${[...Array(8)].map((_,i)=>{
+ const finalized=!!db.iftaFinalized[selected];
+ const lockButton=finalized
+   ? `<span class="ifta-lock">🔒 Finalized</span><button class="secondary" onclick="reopenIFTAQuarter('${selected}')">Reopen</button>`
+   : `<button class="primary" onclick="finalizeIFTAQuarter('${selected}')">🔒 Finalize Quarter</button>`;
+ el.innerHTML=`<div class="ifta-admin-hero">
+   <div><h3 style="margin:0">🚛 Fleet / IFTA — ${selected}</h3><div class="muted">Running tally from driver mileage entries</div></div>
+   <div class="ifta-actions"><select id="iftaQuarterSelect">${[...Array(8)].map((_,i)=>{
      const d=new Date();d.setMonth(d.getMonth()-i*3);const q=getQuarterInfo(d.toISOString().slice(0,10));const v=`${q.year}-Q${q.quarter}`;
      return `<option value="${v}" ${v===selected?"selected":""}>${q.label}</option>`;
-   }).join("")}</select>
+   }).join("")}</select>${lockButton}</div>
  </div>
- <div class="fleet-cards"><div><b>${totalMiles.toLocaleString()}</b><span>Total Miles</span></div><div><b>${totalGallons.toFixed(1)}</b><span>Total Gallons</span></div><div><b>${entries.length}</b><span>Mileage Entries</span></div></div>
+ <div class="fleet-cards"><div><b>${totalMiles.toLocaleString()}</b><span>Total Miles</span></div><div><b>${totalGallons.toFixed(1)}</b><span>Total Gallons</span></div><div><b>${entries.length}</b><span>Mileage Entries</span></div><div><b>${totalGallons?(totalMiles/totalGallons).toFixed(2):"—"}</b><span>Overall MPG</span></div></div>
  <div class="ifta-state-table">
   <div class="row head"><div>State</div><div>Miles</div><div>Gallons</div><div>MPG</div></div>
-  ${Object.entries(states).sort((a,b)=>a[0].localeCompare(b[0])).map(([st,x])=>`<div class="row"><div><b>${esc(st)}</b></div><div>${x.miles.toLocaleString()}</div><div>${x.gallons.toFixed(1)}</div><div>${x.gallons? (x.miles/x.gallons).toFixed(2):"—"}</div></div>`).join("")||empty("No mileage recorded for this quarter.")}
+  ${Object.entries(states).sort((a,b)=>a[0].localeCompare(b[0])).map(([st,x])=>`<div class="row"><div><b>${esc(st)}</b></div><div>${x.miles.toLocaleString()}</div><div>${x.gallons.toFixed(1)}</div><div>${x.gallons?(x.miles/x.gallons).toFixed(2):"—"}</div></div>`).join("")||empty("No mileage recorded for this quarter.")}
   ${Object.keys(states).length?`<div class="row ifta-total"><div><b>TOTAL</b></div><div><b>${totalMiles.toLocaleString()}</b></div><div><b>${totalGallons.toFixed(1)}</b></div><div>${totalGallons?(totalMiles/totalGallons).toFixed(2):"—"}</div></div>`:""}
  </div>
- <div class="notice">This is a running operational tally for the quarter. Final IFTA filing calculations should be reviewed by the responsible office/accounting person before filing.</div>`;
+ <div class="ifta-entry-log"><h4>Quarter Entries</h4>${entries.slice().reverse().map(m=>`<div class="ifta-entry"><span>${esc(m.date)} · ${esc(m.driver)} · Truck ${esc(m.truck)}</span><b>${Number(m.totalMiles||0).toLocaleString()} mi</b></div>`).join("")||`<div class="muted">No entries yet.</div>`}</div>
+ <div class="notice">${finalized?`<b>🔒 This quarter is finalized.</b> Normal mileage entry should no longer modify it. Finalized: ${esc(db.iftaFinalized[selected].at)} by ${esc(db.iftaFinalized[selected].user)}.`:`<b>Running tally.</b> Review the state totals before finalizing the quarter.`}</div>`;
  document.getElementById("iftaQuarterSelect")?.addEventListener("change",e=>{window.iftaAdminQuarter=e.target.value;renderIFTAAdmin()});
+}
+function reopenIFTAQuarter(key){
+ if(!db.iftaFinalized?.[key])return;
+ if(!confirm(`Reopen ${key} for corrections? This should only be done by an authorized supervisor/admin.`))return;
+ delete db.iftaFinalized[key];logAudit("Reopened IFTA quarter "+key);save();renderIFTAAdmin();
+}
+function finalizeIFTAQuarter(key){
+ db.iftaFinalized=db.iftaFinalized||{};
+ if(db.iftaFinalized[key]){alert("This quarter is already finalized.");return}
+ const [yr,qq]=key.split("-Q").map(Number);
+ const entries=(db.mileage||[]).filter(m=>{const q=getQuarterInfo(m.date);return q.year===yr&&q.quarter===qq});
+ const states={};entries.forEach(m=>Object.entries(m.states||{}).forEach(([st,x])=>{states[st]=states[st]||{miles:0,gallons:0};states[st].miles+=Number(x.miles||0);states[st].gallons+=Number(x.gallons||0)}));
+ const totalMiles=entries.reduce((a,m)=>a+Number(m.totalMiles||0),0),totalGallons=Object.values(states).reduce((a,x)=>a+x.gallons,0);
+ if(!confirm(`Finalize ${key}?\n\nMiles: ${totalMiles.toLocaleString()}\nGallons: ${totalGallons.toFixed(1)}\n\nThis will mark the quarter as finalized.`))return;
+ db.iftaFinalized[key]={year:yr,quarter:Number(qq),totalMiles,totalGallons,states,entryCount:entries.length,at:new Date().toLocaleString(),user:"Prototype Admin"};
+ logAudit("Finalized IFTA quarter "+key);
+ save();renderIFTAAdmin();
 }
 
 function renderCustomers(){

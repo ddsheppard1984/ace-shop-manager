@@ -208,3 +208,13 @@ V1.9 ADMIN IFTA QUARTERLY RUNNING LOG
 - Quarter selector allows review of recent quarters.
 - Automatically updates as mileage entries are added.
 - Final filing remains subject to office/accounting review.
+
+
+V2.0 IFTA ADMIN DASHBOARD + QUARTER FINALIZATION
+- Made the Administration > Fleet / IFTA dashboard prominent and visible.
+- Shows selected quarter, total miles, total gallons, entry count and overall MPG.
+- Shows state-by-state miles, gallons and MPG.
+- Shows individual quarter mileage entries.
+- Added Finalize Quarter lock with snapshot totals and timestamp/user.
+- Finalized quarters block new mileage entries for that quarter.
+- Added authorized Reopen function for corrections.
