@@ -218,3 +218,14 @@ V2.0 IFTA ADMIN DASHBOARD + QUARTER FINALIZATION
 - Added Finalize Quarter lock with snapshot totals and timestamp/user.
 - Finalized quarters block new mileage entries for that quarter.
 - Added authorized Reopen function for corrections.
+
+
+V2.1 TECHNICIAN LABOR TIME TRACKING
+- Added Technician Time section.
+- Technicians can start/stop a work timer from a job/motor workflow.
+- Time is tied to job/motor, technician and procedure stage.
+- Multiple technicians can work on the same motor with separate sessions.
+- A technician cannot accidentally run two timers at once; switching jobs prompts to stop the current timer.
+- Labor sessions are retained as start/end timestamps and calculated minutes.
+- Labor dashboard shows total labor hours, technician count and session history.
+- Future production version will enforce employee logins instead of technician-name prompts and can calculate labor cost from the configured labor rate.

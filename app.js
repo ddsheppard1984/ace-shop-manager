@@ -516,6 +516,50 @@ function finalizeIFTAQuarter(key){
  save();renderIFTAAdmin();
 }
 
+
+const LABOR_STAGES=["Inspection","Disassembly","Cleaning","Repair","Assembly","Testing","Final QC","Other"];
+function ensureLaborData(){db.laborSessions=db.laborSessions||[];db.activeTimers=db.activeTimers||{}}
+function renderLabor(){
+ ensureLaborData();
+ const active=document.getElementById("activeTimerPanel"),summary=document.getElementById("laborSummary"),table=document.getElementById("laborTable");if(!active)return;
+ const timers=Object.values(db.activeTimers);
+ active.innerHTML=timers.length?timers.map(t=>`<div class="timer-card"><div><b>🔴 ${esc(t.technician)}</b><span>Motor/Job ${esc(t.jobId)} · ${esc(t.stage)}</span></div><div class="timer-live" data-start="${t.startedAt}">00:00:00</div><button class="danger-btn" onclick="stopLaborTimer('${t.jobId}','${t.technician.replace(/'/g,"\\'")}')">⏹ Stop Work</button></div>`).join(""):`<div class="notice">No technician timers are currently running.</div>`;
+ const totalMin=db.laborSessions.reduce((a,x)=>a+Number(x.minutes||0),0);
+ const byTech={};db.laborSessions.forEach(x=>byTech[x.technician]=(byTech[x.technician]||0)+Number(x.minutes||0));
+ summary.innerHTML=`<div class="fleet-cards"><div><b>${(totalMin/60).toFixed(2)}</b><span>Total Labor Hours</span></div><div><b>${Object.keys(byTech).length}</b><span>Technicians</span></div><div><b>${db.laborSessions.length}</b><span>Work Sessions</span></div></div>`;
+ table.innerHTML=`<div class="row head"><div>Date</div><div>Technician</div><div>Job / Motor</div><div>Procedure</div><div>Time</div></div>`+
+ db.laborSessions.slice().reverse().map(x=>`<div class="row"><div>${esc(x.date)}</div><div>${esc(x.technician)}</div><div>${esc(x.jobId)}</div><div>${esc(x.stage)}</div><div><b>${formatMinutes(x.minutes)}</b></div></div>`).join("")||empty("No completed labor sessions yet.");
+ updateLiveTimers();setTimeout(()=>{if(document.getElementById("labor"))updateLiveTimers()},1000);
+}
+function formatMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(Math.round(m%60)).padStart(2,"0")}m`}
+function updateLiveTimers(){document.querySelectorAll(".timer-live").forEach(el=>{const ms=Date.now()-new Date(el.dataset.start).getTime();const sec=Math.max(0,Math.floor(ms/1000));el.textContent=`${String(Math.floor(sec/3600)).padStart(2,"0")}:${String(Math.floor(sec%3600/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`})}
+function startLaborTimer(jobId,technician,stage){
+ ensureLaborData();
+ const existing=db.activeTimers[jobId];
+ if(existing){alert(`This motor already has ${existing.technician}'s timer running.`);return}
+ const other=Object.values(db.activeTimers).find(t=>t.technician===technician);
+ if(other){if(!confirm(`${technician} is currently working on ${other.jobId}. Stop that timer and start this motor?`))return;stopLaborTimer(other.jobId,technician,true)}
+ db.activeTimers[jobId]={jobId,technician,stage,startedAt:new Date().toISOString()};
+ logAudit(`Started labor timer for ${jobId}`);save();renderLabor();
+}
+function stopLaborTimer(jobId,technician,silent=false){
+ ensureLaborData();const t=db.activeTimers[jobId];if(!t)return;
+ const end=new Date(),minutes=(end-new Date(t.startedAt))/60000;
+ db.laborSessions.push({id:"L-"+(db.laborSessions.length+1),jobId,technician:t.technician,stage:t.stage,start:t.startedAt,end:end.toISOString(),minutes,date:end.toISOString().slice(0,10)});
+ delete db.activeTimers[jobId];logAudit(`Stopped labor timer for ${jobId}`);save();if(!silent)renderLabor();
+}
+function openLaborTimer(jobId){
+ ensureLaborData();const existing=db.activeTimers[jobId];if(existing){stopLaborTimer(jobId,existing.technician);return}
+ const tech=prompt("Technician name:");if(!tech)return;
+ const stage=prompt("Procedure / work stage (Inspection, Disassembly, Cleaning, Repair, Assembly, Testing, Final QC, Other):","Repair")||"Other";
+ startLaborTimer(jobId,tech,stage);
+}
+function jobLaborSummary(jobId){
+ ensureLaborData();const rows=db.laborSessions.filter(x=>x.jobId===jobId),active=db.activeTimers[jobId];
+ const mins=rows.reduce((a,x)=>a+Number(x.minutes||0),0)+(active?(Date.now()-new Date(active.startedAt))/60000:0);
+ return {minutes:mins,sessions:rows};
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
@@ -947,7 +991,7 @@ function workflowHtml(j){
    </div>
    <div class="nameplate-actions"><button type="button" class="primary" onclick="saveNameplateData('${j.id}')">Save Nameplate Data</button></div>
  </div>`:""}
- <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button>${w[0]==="Receiving"?`<button type="button" class="secondary" onclick="showMotorQr('${j.id}')">▣ Create / Print QR</button>`:""}<button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
+ <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button>${w[0]==="Receiving"?`<button type="button" class="secondary" onclick="showMotorQr('${j.id}')">▣ Create / Print QR</button>`:""}<button type="button" class="secondary" onclick="openLaborTimer('${j.id}')">⏱️ Start / Stop Work</button><button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
 }
 function editJob(id){
  let j=db.jobs.find(x=>x.id===id);if(!j)return;

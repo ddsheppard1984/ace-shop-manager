@@ -25,6 +25,7 @@
       <button class="nav" data-view="quotes">Quotes</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
       <button class="nav" data-view="fleet">🚛 Fleet / IFTA</button>
+      <button class="nav" data-view="labor">⏱️ Technician Time</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
@@ -117,6 +118,15 @@
         <div class="panel-head"><h2>Fleet Mileage / IFTA</h2><span class="muted">Simple mileage and gallons by state</span></div>
         <div id="mileageSummary"></div>
         <div id="mileageTable"></div>
+      </div>
+    </section>
+
+    <section id="labor" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>⏱️ Technician Time / Labor</h2><span class="muted">Actual hands-on time by motor, technician and procedure</span></div>
+        <div id="activeTimerPanel"></div>
+        <div id="laborSummary"></div>
+        <div id="laborTable"></div>
       </div>
     </section>
 
