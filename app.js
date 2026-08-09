@@ -103,7 +103,7 @@ function renderEquipmentPage(){
    (!q || [e.equipmentNumber,e.customer,e.jobId,e.manufacturer,e.model,e.serial].join(" ").toLowerCase().includes(q)) &&
    (!type || e.type===type)
  );
- return `<div class="page-head"><div><h1>⚙️ Equipment</h1><p class="muted">Equipment master records and service history.</p></div>
+ target.innerHTML=`<div class="page-head"><div><h1>⚙️ Equipment</h1><p class="muted">Equipment master records and service history.</p></div>
  <div class="page-actions"><button class="primary" onclick="openNewEquipment()">+ Add Equipment</button></div></div>
  <div class="card"><div class="toolbar">
    <input class="search-input" placeholder="Search equipment #, serial, customer, job..." value="${esc(window.equipmentSearch||"")}" oninput="window.equipmentSearch=this.value;render()">
@@ -197,7 +197,7 @@ async function editEquipment(id){
  });
 }
 
-function renderDatabasePanel(){
+async function renderDatabasePanel(){
  const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
  let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
  el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> Customers → Jobs → Quotes → Invoices / A/R are database-backed. Inventory is connected for read/sync. Engineering, motors, time, IFTA, deliveries, documents and full accounting are next.</div><div id="dbMessage"></div>`;
@@ -211,7 +211,7 @@ function money(n){return "$"+Number(n||0).toLocaleString(undefined,{minimumFract
 function nav(view){
  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===view));
  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
- const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
+ const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],equipment:["Equipment","Equipment master records and service history"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],"new-motors":["New Motors","New motor inventory"],quotes:["Quotes","Repair estimates and approvals"],sales:["Sales / POS & Invoices","Sales, invoices and payments"],billing:["Billing / A/R","Accounts receivable and Net 30"],accounting:["Accounting","General ledger and accounting exports"],deliveries:["Pickups / Deliveries","Schedule and track transportation"],fleet:["Fleet / IFTA","Mileage, gallons and quarterly IFTA"],labor:["Technician Time","Hands-on labor and timers"],timeslips:["Time Slips","Labor codes and time entries"],engineering:["Engineering","Field testing and engineering jobs"],schedule:["Scheduling / Dispatch","Jobs, crews and dispatch"],procedures:["Procedures / SOPs","Shop workflows and checklists"],maintenance:["Preventive Maintenance","Service schedules"],certifications:["Certifications / Training","Employee certifications"],reports:["Management Reports","Operations and financial reporting"],integrations:["Accounting / Integrations","Exports and integrations"],alerts:["Alerts / Action Center","Items needing attention"],ai:["Shop Assistant","AC Electric assistant"],users:["Users / Access","User roles and access"],admin:["Administration","System settings and database"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
  db.audit=db.audit||[];
 db.users=db.users||[
@@ -378,6 +378,7 @@ function render(){
  const low=db.inventory.filter(i=>i.qty<=i.min);
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
  renderCustomers();renderJobs();renderInventory();renderNewMotors();
+ renderEquipmentPage();
  renderSales();
  renderBilling();
  renderTimeSlips();
@@ -1767,7 +1768,7 @@ async function openNewEquipment(){
  });
 }
 
-function openNewJob(){
+async function openNewJob(){
  const session=await getCurrentSupabaseSession();
  openModal("New Motor / Breaker Job",`<div class="form-grid">
    <div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div>
