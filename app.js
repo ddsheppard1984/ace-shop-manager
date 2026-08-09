@@ -407,6 +407,24 @@ function editCustomer(id){
 function openNewJob(){
  openModal("New Motor / Breaker Job",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Equipment Type</label><select name="type"><option>AC 3 Phase</option><option>AC Single Phase</option><option>DC Motor</option><option>Breaker</option><option>Pump</option><option>Generator</option><option>Other</option></select></div><div class="field"><label>Horsepower</label><input name="hp" type="number"></div><div class="field"><label>Voltage</label><input name="voltage"></div><div class="field"><label>Serial Number</label><input name="serial"></div><div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Rush</option></select></div><div class="field full"><label>Customer Complaint / Notes</label><textarea name="notes" rows="3"></textarea></div></div><div class="form-actions"><button class="primary">Create Job</button></div>`,f=>{const n=db.jobs.length+1001;db.jobs.push({id:"J-"+n,customer:f.get("customer"),type:f.get("type"),hp:f.get("hp"),voltage:f.get("voltage"),serial:f.get("serial"),stage:"Receiving",priority:f.get("priority"),notes:f.get("notes"),completed:{},photos:[]})});
 }
+
+function saveNameplateData(id){
+ const j=db.jobs.find(x=>x.id===id); if(!j)return;
+ j.motor=j.motor||{};
+ const map={
+  np_manufacturer:"manufacturer",np_model:"model",np_acdc:"acdc",np_phase:"phase",np_power:"power",
+  np_voltage:"voltage",np_amps:"amps",np_rpm:"rpm",np_frequency:"frequency",np_frame:"frame",
+  np_serviceFactor:"serviceFactor",np_enclosure:"enclosure",np_insulationClass:"insulationClass",
+  np_tempRise:"tempRise",np_duty:"duty",np_efficiency:"efficiency",np_powerFactor:"powerFactor",
+  np_bearingDE:"bearingDE",np_bearingODE:"bearingODE"
+ };
+ Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el)j.motor[key]=el.value});
+ const serial=document.getElementById("np_serial"); if(serial)j.serial=serial.value;
+ const notes=document.getElementById("np_notes"); if(notes)j.motor.identNotes=notes.value;
+ j.motor.nameplateCapturedAt=new Date().toISOString();
+ save();editJob(id);
+}
+
 function editJob(id){
  const j=db.jobs.find(x=>x.id===id); if(!j)return;
  const stages=["Receiving","Inspection","Disassembly","Cleaning","Machine Shop","Waiting on Parts","Assembly","Testing","Paint","Quality Check","Ready for Pickup","Completed"];
@@ -561,6 +579,33 @@ function workflowHtml(j){
  return WORKFLOW.map((w,i)=>{let done=(j.completed||{})[w[0]],active=j.stage===w[0];
  return `<div class="stage ${done?"done":""} ${active?"active":""}"><div class="stage-top"><div><b>${i+1}. ${w[1]}</b><div class="muted">${done?"Completed":active?"Current step":"Locked"}</div></div><span class="stage-dot">${done?"✓":i+1}</span></div>
  ${active?`<div class="checklist">${w[2].map((x,k)=>`<label><input class="wfcheck" data-key="${w[0]}" data-i="${k}" type="checkbox" ${((j.checks||{})[w[0]]||[])[k]?"checked":""}>${x}</label>`).join("")}</div>
+ ${w[0]==="Receiving"?`<div class="nameplate-sheet">
+   <div class="nameplate-head"><div><b>Motor Nameplate / Job-In Data Sheet</b><div class="muted">Enter information exactly as shown on the nameplate when available.</div></div><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','Nameplate')">📷 Nameplate Photo</button></div>
+   <div class="form-grid">
+    ${motorField("Manufacturer","np_manufacturer",j.motor?.manufacturer)}
+    ${motorField("Model / Type","np_model",j.motor?.model)}
+    ${motorField("Serial Number","np_serial",j.serial||j.motor?.serial)}
+    ${motorField("AC / DC","np_acdc",j.motor?.acdc)}
+    ${motorField("Phase","np_phase",j.motor?.phase)}
+    ${motorField("HP / kW","np_power",j.motor?.power||j.hp)}
+    ${motorField("Voltage","np_voltage",j.motor?.voltage||j.voltage)}
+    ${motorField("Amps","np_amps",j.motor?.amps)}
+    ${motorField("RPM","np_rpm",j.motor?.rpm)}
+    ${motorField("Hz / Frequency","np_frequency",j.motor?.frequency)}
+    ${motorField("Frame","np_frame",j.motor?.frame)}
+    ${motorField("Service Factor","np_serviceFactor",j.motor?.serviceFactor)}
+    ${motorField("Enclosure","np_enclosure",j.motor?.enclosure)}
+    ${motorField("Insulation Class","np_insulationClass",j.motor?.insulationClass)}
+    ${motorField("Temperature Rise","np_tempRise",j.motor?.tempRise)}
+    ${motorField("Duty","np_duty",j.motor?.duty)}
+    ${motorField("Efficiency","np_efficiency",j.motor?.efficiency)}
+    ${motorField("Power Factor","np_powerFactor",j.motor?.powerFactor)}
+    ${motorField("Bearing DE","np_bearingDE",j.motor?.bearingDE)}
+    ${motorField("Bearing ODE","np_bearingODE",j.motor?.bearingODE)}
+    ${motorText("Additional Nameplate Information","np_notes",j.motor?.identNotes,2)}
+   </div>
+   <div class="nameplate-actions"><button type="button" class="primary" onclick="saveNameplateData('${j.id}')">Save Nameplate Data</button></div>
+ </div>`:""}
  <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button>${w[0]==="Receiving"?`<button type="button" class="secondary" onclick="showMotorQr('${j.id}')">▣ Create / Print QR</button>`:""}<button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
 }
 function editJob(id){

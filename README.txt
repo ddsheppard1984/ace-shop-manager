@@ -117,3 +117,12 @@ V0.9 QUOTE APPROVAL + MOTOR QR
 - QR identifies the job/motor and can open the job record in the prototype.
 - QR generation currently uses a public QR image service for prototype convenience; production should generate/store QR codes without exposing sensitive data and use authenticated links.
 - Email/SMS sending is intentionally not connected yet; production will use a transactional email/SMS provider with secure customer data handling.
+
+
+V1.0 JOB-IN NAMEPLATE DATA SHEET
+- Receiving / Job-In now includes a dedicated motor nameplate data sheet.
+- Technicians can manually enter nameplate information at receiving.
+- Fields include manufacturer, model/type, serial, AC/DC, phase, HP/kW, voltage, amps, RPM, frequency, frame, service factor, enclosure, insulation class, temperature rise, duty, efficiency, power factor, DE/ODE bearings and additional notes.
+- Nameplate photo can be attached from the same section.
+- Saved nameplate data feeds the Motor Master Record so information does not need to be entered twice.
+- QR creation remains available directly in Receiving.
