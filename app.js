@@ -322,6 +322,25 @@ function completeDelivery(id){
  d.status=isPickup?"Picked Up":"Delivered";d.completedAt=new Date().toISOString();
  save();closeModal();render();alert(d.status+" recorded successfully.");
 }
+
+function openQuoteFromJob(jobId){
+ const j=db.jobs.find(x=>x.id===jobId); if(!j)return;
+ const existing=db.quotes.find(q=>q.job===jobId);
+ if(existing){
+   openQuoteBuilder(existing.id);
+   return;
+ }
+ const customer=db.customers.find(c=>c.name===j.customer);
+ openQuoteBuilder(null,{
+   customer:j.customer,
+   job:j.id,
+   contact:customer?.contact||"",
+   motorDescription:`${j.type||"Motor"}${j.hp?` — ${j.hp} HP`:""}${j.voltage?` — ${j.voltage} V`:""}${j.serial?` — S/N ${j.serial}`:""}`,
+   notes:j.notes||"",
+   items:[]
+ });
+}
+
 function openModal(title,html,onSubmit){
  document.getElementById("modalTitle").textContent=title;document.getElementById("modalForm").innerHTML=html;document.getElementById("modal").classList.remove("hidden");
  document.getElementById("modalForm").onsubmit=e=>{e.preventDefault();onSubmit(new FormData(e.target));closeModal();save();render()};
@@ -369,14 +388,15 @@ function quoteBuilderRows(items=[]){
   <button type="button" class="danger-btn" onclick="removeQuoteLine(this)">×</button>
  </div>`).join("");
 }
-function openQuoteBuilder(existingId=null){
+function openQuoteBuilder(existingId=null,prefill=null){
  const existing=existingId?db.quotes.find(q=>q.id===existingId):null;
- const q=existing||{customer:db.customers[0]?.name||"",job:"",amount:0,status:"Draft",items:[{desc:"Motor inspection / evaluation",qty:1,unit:0}]};
+ const q=existing||prefill||{customer:db.customers[0]?.name||"",job:"",amount:0,status:"Draft",items:[{desc:"Motor inspection / evaluation",qty:1,unit:0}]};
  openModal(existing?"Edit Quote "+existing.id:"Build New Quote",`
   <div class="quote-head">
    <div><b>${existing?esc(existing.id):"New Quote"}</b><div class="muted">Basic repair estimate builder</div></div>
    ${badge(q.status)}
   </div>
+  ${q.job?`<div class="linked-job"><b>🔗 Linked Job / Motor: ${esc(q.job)}</b><div>${esc(q.motorDescription||"Motor information linked from job")}</div></div>`:""}
   <div class="form-grid">
    <div class="field"><label>Customer <span class="req">*</span></label><select id="qcustomer">${customerOptions()}</select></div>
    <div class="field"><label>Job Number</label><input id="qjob" value="${esc(q.job||"")}"></div>
@@ -384,6 +404,7 @@ function openQuoteBuilder(existingId=null){
    <div class="field"><label>Valid Through</label><input id="qvalid" type="date" value="${esc(q.validThrough||"")}"></div>
    <div class="field"><label>Customer Contact</label><input id="qcontact" value="${esc(q.contact||"")}"></div>
    <div class="field"><label>Prepared By</label><input id="qprepared" value="${esc(q.preparedBy||"")}"></div>
+   <div class="field full"><label>Motor / Job Description</label><input id="qmotor" value="${esc(q.motorDescription||"")}" placeholder="Automatically filled when quote is created from a job"></div>
   </div>
   <div class="quote-section">
    <div class="quote-section-head"><h3>Quote Items</h3><button type="button" class="secondary" onclick="addQuoteLine()">+ Add Line</button></div>
@@ -445,7 +466,7 @@ function saveQuoteBuilder(id){
  Object.assign(q,{
   customer,job:document.getElementById("qjob").value,date:document.getElementById("qdate").value,
   validThrough:document.getElementById("qvalid").value,contact:document.getElementById("qcontact").value,
-  preparedBy:document.getElementById("qprepared").value,items,subtotal,laborHours,laborRate,labor,tax,
+  preparedBy:document.getElementById("qprepared").value,motorDescription:document.getElementById("qmotor").value,items,subtotal,laborHours,laborRate,labor,tax,
   amount:total,status:document.getElementById("qstatus").value,notes:document.getElementById("qnotes").value
  });
  save();closeModal();render();
@@ -502,7 +523,10 @@ function editJob(id){
  <div class="override"><button type="button" class="secondary" onclick="supervisorOverride('${j.id}')">🔒 Supervisor Override Current Step</button></div>
  <div class="field"><label>Job Notes</label><textarea id="jn" rows="4">${esc(j.notes||"")}</textarea></div>
  <div><b>Motor / Job Photos</b><div class="photos">${photos}</div></div>
- <div class="form-actions"><button type="button" class="primary" onclick="saveJobNotes('${j.id}')">Save Job</button></div>`,()=>{});
+ <div class="form-actions">
+  <button type="button" class="secondary" onclick="openQuoteFromJob('${j.id}')">💰 Build Quote</button>
+  <button type="button" class="primary" onclick="saveJobNotes('${j.id}')">Save Job</button>
+</div>`,()=>{});
  document.querySelectorAll(".wfcheck").forEach(c=>c.onchange=()=>{j.checks=j.checks||{};j.checks[c.dataset.key]=j.checks[c.dataset.key]||[];j.checks[c.dataset.key][+c.dataset.i]=c.checked;save()})
 }
 function saveJobNotes(id){let j=db.jobs.find(x=>x.id===id);j.notes=document.getElementById("jn").value;save();closeModal();render()}

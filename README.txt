@@ -98,3 +98,11 @@ V0.7 QUOTE BUILDER
 - Automatic quote total calculation.
 - Existing quotes can be clicked to edit.
 - Designed as a prototype foundation for later AC Electric-specific labor operations, parts/markup rules, approvals, PDF generation and customer delivery.
+
+
+V0.8 JOB-LINKED QUOTING
+- Job editor now has a Build Quote button.
+- Clicking Build Quote from a job automatically links the quote to that job number and customer.
+- Customer contact and basic motor description are prefilled from the job where available.
+- If a quote already exists for that job, Build Quote opens the existing quote for editing instead of creating a duplicate.
+- Quote builder displays the linked job/motor information.
