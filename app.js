@@ -74,7 +74,84 @@ function renderQuotes(){
 }
 function renderDeliveries(){
  document.getElementById("deliveryTable").innerHTML=`<div class="row head"><div>Type / Customer</div><div>Date</div><div>Driver</div><div>Status</div></div>`+
- db.deliveries.map(d=>`<div class="row"><div><strong>${esc(d.type)}</strong><div class="muted">${esc(d.customer)}</div></div><div>${esc(d.date)}</div><div>${esc(d.driver)}</div><div>${badge(d.status)}</div></div>`).join("")||empty();
+ db.deliveries.map(d=>`<div class="row clickable" onclick="openDelivery('${d.id}')"><div><strong>${esc(d.type)}</strong><div class="muted">${esc(d.customer)} · ${esc((d.jobs||[]).join(", "))}</div></div><div>${esc(d.date)}</div><div>${esc(d.driver)}</div><div>${badge(d.status)}</div></div>`).join("")||empty();
+}
+
+
+function openDelivery(id){
+ const d=db.deliveries.find(x=>x.id===id); if(!d)return;
+ d.photos=d.photos||[]; d.jobs=d.jobs||[];
+ const jobs=db.jobs;
+ const selectedJobs=jobs.map(j=>`<label class="job-select"><input type="checkbox" class="delivery-job" value="${esc(j.id)}" ${d.jobs.includes(j.id)?"checked":""}> <b>${esc(j.id)}</b> — ${esc(j.customer)} — ${esc(j.type)} ${j.hp?esc(j.hp)+" HP":""}</label>`).join("");
+ const photos=(d.photos||[]).map(p=>`<div class="photo"><img src="${p.data}"><small>${esc(p.kind)} · ${esc(p.name||"photo")}</small></div>`).join("")||empty("No delivery/pickup photos yet.");
+ openModal((d.type==="Pickup"?"Pickup":"Delivery")+" "+d.id,`
+  <div class="job-summary"><div><b>${esc(d.customer)}</b><div class="muted">${esc(d.type)} · ${esc(d.date)} · ${esc(d.driver)}</div></div>${badge(d.status)}</div>
+  <div class="notice"><b>Driver workflow:</b> record the condition, attach required photos, capture the customer's acknowledgment/signature, then complete the ${d.type.toLowerCase()}.</div>
+  <div class="delivery-section"><h3>1. Jobs / Motors</h3><div class="job-selects">${selectedJobs}</div></div>
+  <div class="delivery-section"><h3>2. Pickup Condition Report</h3>
+    <div class="condition-grid">
+      ${["Motor appears undamaged","Shaft condition appears normal","Fan / guard present","Terminal / conduit box present","Nameplate present / readable","Mounting feet / flange condition","Lifting points condition","Covers / accessories present","Visible corrosion","Visible oil / grease leakage","Physical damage","Other"].map((x,i)=>`<label><input type="checkbox" class="cond" data-i="${i}" ${(d.conditionChecks||[])[i]?"checked":""}> ${x}</label>`).join("")}
+    </div>
+    <div class="field"><label>Overall Condition</label><select id="condition"><option ${d.condition==="Good"?"selected":""}>Good</option><option ${d.condition==="Damaged — Documented"?"selected":""}>Damaged — Documented</option><option ${d.condition==="Significant Damage"?"selected":""}>Significant Damage</option></select></div>
+    <div class="field"><label>Driver Notes</label><textarea id="deliveryNotes" rows="3">${esc(d.notes||"")}</textarea></div>
+  </div>
+  <div class="delivery-section"><h3>3. Required Photos</h3>
+    <div class="required-photos">
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Overall Motor')">📷 Overall Motor</button>
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Nameplate')">📷 Nameplate</button>
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Shaft')">📷 Shaft</button>
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Connection Box')">📷 Connection Box</button>
+      <button type="button" class="secondary" onclick="addDeliveryPhoto('${d.id}','Damage / Other')">📷 Damage / Other</button>
+    </div>
+    <div class="photos">${photos}</div>
+  </div>
+  <div class="delivery-section"><h3>4. Customer Acknowledgment</h3>
+    <div class="field"><label>Received / Released By</label><input id="receiverName" value="${esc(d.receiverName||"")}"></div>
+    <div class="signature-wrap"><canvas id="sigCanvas" width="560" height="180"></canvas><div class="sig-actions"><button type="button" class="secondary" onclick="clearSignature()">Clear Signature</button></div></div>
+    <div class="muted">Customer signature is captured on the driver's phone/tablet. Date/time are recorded automatically when completed.</div>
+  </div>
+  <div class="form-actions">
+    <button type="button" class="secondary" onclick="saveDelivery('${d.id}')">Save</button>
+    <button type="button" class="primary" onclick="completeDelivery('${d.id}')">Complete ${esc(d.type)}</button>
+  </div>`,()=>{});
+ setupSignature(d);
+ document.querySelectorAll(".delivery-job").forEach(c=>c.onchange=()=>{d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);save()});
+ document.querySelectorAll(".cond").forEach(c=>c.onchange=()=>{d.conditionChecks=d.conditionChecks||[];d.conditionChecks[+c.dataset.i]=c.checked;save()});
+}
+let sigPad=null;
+function setupSignature(d){
+ const c=document.getElementById("sigCanvas"); if(!c)return;
+ const ctx=c.getContext("2d");ctx.lineWidth=2;ctx.lineCap="round";ctx.strokeStyle="#0f172a";ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+ if(d.signature){let im=new Image();im.onload=()=>ctx.drawImage(im,0,0);im.src=d.signature}
+ let drawing=false;
+ const pos=e=>{const r=c.getBoundingClientRect();return {x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height}};
+ c.onpointerdown=e=>{drawing=true;let p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);c.setPointerCapture(e.pointerId)};
+ c.onpointermove=e=>{if(!drawing)return;let p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke()};
+ c.onpointerup=()=>drawing=false;c.onpointercancel=()=>drawing=false;
+ sigPad={canvas:c,ctx};
+}
+function clearSignature(){if(!sigPad)return;sigPad.ctx.clearRect(0,0,sigPad.canvas.width,sigPad.canvas.height)}
+function addDeliveryPhoto(id,kind){
+ const input=document.createElement("input");input.type="file";input.accept="image/*";input.multiple=true;input.capture="environment";
+ input.onchange=async()=>{const d=db.deliveries.find(x=>x.id===id);d.photos=d.photos||[];for(const f of input.files)d.photos.push({kind,name:f.name,data:await photoData(f)});save();openDelivery(id)};input.click()
+}
+function saveDelivery(id){
+ const d=db.deliveries.find(x=>x.id===id);
+ d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);
+ d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value;d.receiverName=document.getElementById("receiverName").value;
+ if(sigPad)d.signature=sigPad.canvas.toDataURL("image/png");
+ save();closeModal();render();
+}
+function completeDelivery(id){
+ const d=db.deliveries.find(x=>x.id===id);
+ d.jobs=[...document.querySelectorAll(".delivery-job:checked")].map(x=>x.value);
+ d.condition=document.getElementById("condition").value;d.notes=document.getElementById("deliveryNotes").value;d.receiverName=document.getElementById("receiverName").value;
+ if(!d.jobs.length){alert("Select at least one job/motor.");return}
+ if(d.condition!=="Good" && !(d.photos||[]).length){alert("A damaged/significant condition requires at least one photo before completion.");return}
+ if(!d.receiverName.trim()){alert("Enter the customer's name.");return}
+ if(!sigPad || sigPad.canvas.toDataURL("image/png").length<5000){alert("Customer signature is required.");return}
+ d.signature=sigPad.canvas.toDataURL("image/png");d.status=d.type==="Pickup"?"Picked Up":"Delivered";d.completedAt=new Date().toISOString();
+ save();closeModal();render();alert(d.status+" recorded successfully.");
 }
 function openModal(title,html,onSubmit){
  document.getElementById("modalTitle").textContent=title;document.getElementById("modalForm").innerHTML=html;document.getElementById("modal").classList.remove("hidden");
@@ -115,7 +192,7 @@ function openNewQuote(){
  openModal("New Quote",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Job Number</label><input name="job"></div><div class="field"><label>Amount</label><input name="amount" type="number" step="0.01"></div><div class="field"><label>Status</label><select name="status"><option>Draft</option><option>Awaiting Approval</option><option>Approved</option><option>Declined</option></select></div></div><div class="form-actions"><button class="primary">Save Quote</button></div>`,f=>db.quotes.push({id:"Q-"+(db.quotes.length+2001),customer:f.get("customer"),job:f.get("job"),amount:Number(f.get("amount")),status:f.get("status")}));
 }
 function openNewDelivery(){
- openModal("Schedule Pickup / Delivery",`<div class="form-grid"><div class="field"><label>Type</label><select name="type"><option>Pickup</option><option>Delivery</option></select></div><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Driver</label><select name="driver"><option>Unassigned</option><option>Driver 1</option><option>Driver 2</option><option>Driver 3</option><option>Driver 4</option></select></div></div><div class="form-actions"><button class="primary">Schedule</button></div>`,f=>db.deliveries.push({id:"D-"+(db.deliveries.length+3001),type:f.get("type"),customer:f.get("customer"),date:f.get("date"),driver:f.get("driver"),status:"Scheduled"}));
+ openModal("Schedule Pickup / Delivery",`<div class="form-grid"><div class="field"><label>Type</label><select name="type"><option>Pickup</option><option>Delivery</option></select></div><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Driver</label><select name="driver"><option>Unassigned</option><option>Driver 1</option><option>Driver 2</option><option>Driver 3</option><option>Driver 4</option></select></div></div><div class="form-actions"><button class="primary">Schedule</button></div>`,f=>db.deliveries.push({id:"D-"+(db.deliveries.length+3001),type:f.get("type"),customer:f.get("customer"),date:f.get("date"),driver:f.get("driver"),status:"Scheduled",jobs:[],condition:"",notes:"",photos:[],signature:null}));
 }
 ["customerSearch","jobSearch","inventorySearch"].forEach(id=>document.getElementById(id).addEventListener("input",render));
 

@@ -8,3 +8,9 @@
 .checklist{display:grid;gap:9px;margin:12px 0}.checklist label{display:flex;gap:8px;align-items:flex-start;font-size:13px}
 .stage-actions{display:flex;gap:8px;flex-wrap:wrap}.override{padding:12px 0;border-bottom:1px solid #e2e8f0;margin-bottom:12px}
 .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.photo{width:130px}.photo img{width:130px;height:95px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1}.photo small{display:block;color:#64748b;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.delivery-section{border-top:1px solid #e2e8f0;padding-top:14px;margin-top:14px}.delivery-section h3{margin:0 0 10px;font-size:15px}
+.job-selects{display:grid;gap:8px;max-height:180px;overflow:auto}.job-select{padding:9px;border:1px solid #e2e8f0;border-radius:8px}
+.condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.condition-grid label{font-size:13px}
+.required-photos{display:flex;gap:8px;flex-wrap:wrap}.signature-wrap{border:1px solid #cbd5e1;border-radius:10px;background:#fff;margin:8px 0;overflow:hidden}.signature-wrap canvas{display:block;width:100%;height:180px;touch-action:none}.sig-actions{padding:7px;border-top:1px solid #e2e8f0}
+@media(max-width:650px){.condition-grid{grid-template-columns:1fr}}

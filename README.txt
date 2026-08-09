@@ -49,3 +49,14 @@ V0.2 WORKFLOW FEATURES
 - Supervisor override exists for demo purposes only (code 2468). Production must use authenticated supervisor accounts, audit logs and permissions.
 - iPhone camera/file photo capture is supported; photos are attached to the job and stage in this prototype.
 - Public online procedure sources used as design references: ANSI/EASA AR100-2025, ABB maintenance documentation, and IEEE insulation-resistance guidance. These are not copied into the app. Replace the generic checklist with AC Electric's approved procedures, manufacturer requirements, applicable standards, safety/LOTO rules and acceptance criteria before production use.
+
+
+V0.3 DRIVER PICKUP / DELIVERY
+- Dedicated driver workflow for pickups and deliveries.
+- Select the job(s)/motor(s) being transported.
+- Pickup condition checklist with Good / Damaged—Documented / Significant Damage.
+- Driver notes and required condition photos.
+- Customer name and touch-screen signature captured on the phone/tablet.
+- Completion requires a selected job, customer name, signature, and (for damaged conditions) at least one photo.
+- Completion records date/time and status.
+- Prototype stores data locally; production must use authenticated driver accounts, secure cloud storage, encrypted signatures/photos, GPS, audit logs, and retention controls.
