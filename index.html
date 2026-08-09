@@ -24,6 +24,7 @@
       <button class="nav" data-view="new-motors">New Motors</button>
       <button class="nav" data-view="quotes">Quotes</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
+      <button class="nav" data-view="fleet">🚛 Fleet / IFTA</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
@@ -107,6 +108,15 @@
       <div class="panel">
         <div class="panel-head"><h2>New Motor Inventory</h2><span class="muted">New motors available for sale, rental, replacement or jobs</span></div>
         <div id="newMotorTable"></div>
+      </div>
+    </section>
+
+    <section id="fleet" class="view">
+      <div class="toolbar"><button class="primary" id="addMileage">+ Mileage Entry</button></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Fleet Mileage / IFTA</h2><span class="muted">Simple mileage and gallons by state</span></div>
+        <div id="mileageSummary"></div>
+        <div id="mileageTable"></div>
       </div>
     </section>
 

@@ -53,7 +53,8 @@ function render(){
  document.getElementById("dashboardJobs").innerHTML=db.jobs.slice(0,6).map(j=>`<div class="job-card"><strong>${esc(j.id)} — ${esc(j.customer)}</strong><div class="meta"><span class="muted">${esc(j.type)} ${j.hp?j.hp+" HP":""}</span>${badge(j.stage)}</div></div>`).join("")||empty();
  const low=db.inventory.filter(i=>i.qty<=i.min);
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
- renderCustomers();renderJobs();renderInventory();renderNewMotors();renderQuotes();renderDeliveries();
+ renderCustomers();renderJobs();renderInventory();renderNewMotors();
+ renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
 function empty(t="No records yet"){return `<div class="empty">${t}</div>`}
@@ -390,6 +391,67 @@ function importNewMotorsCsv(){
  rows.slice(1).forEach(r=>{const o=Object.fromEntries(h.map((x,i)=>[x,r[i]||""]));if(!o["stock number"]&& !o["model"])return;db.newMotors.push({id:"NM-"+(db.newMotors.length+1),stockNo:o["stock number"]||"",manufacturer:o.manufacturer||"",model:o.model||"",serial:o.serial||"",hp:o.hp||"",acdc:o["ac/dc"]||o.acdc||"",phase:o.phase||"",voltage:o.voltage||"",amps:o.amps||"",rpm:o.rpm||"",frame:o.frame||"",frequency:o.frequency||"",enclosure:o.enclosure||"",qty:Number(o.quantity||0),location:o.location||"",cost:Number(o["unit cost"]||0),salePrice:Number(o["sale price"]||0),reorderLevel:Number(o["reorder level"]||0),notes:o.notes||"",active:true})});
  logAudit("Imported new motor inventory");save();render();openAdminTab("imports");alert("New motor inventory imported.");
  };input.click();
+}
+
+
+const IFTA_STATES=["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+function renderMileage(){
+ const el=document.getElementById("mileageTable");if(!el)return;
+ db.mileage=db.mileage||[];
+ el.innerHTML=`<div class="row head"><div>Date</div><div>Driver</div><div>Truck</div><div>Odometer</div><div>Total Miles</div><div>State Miles / Gallons</div></div>`+
+ db.mileage.slice().reverse().map(m=>`<div class="row"><div>${esc(m.date)}</div><div>${esc(m.driver)}</div><div>${esc(m.truck)}</div><div>${Number(m.startOdo||0).toLocaleString()} → ${Number(m.endOdo||0).toLocaleString()}</div><div><b>${Number(m.totalMiles||0).toLocaleString()}</b></div><div>${Object.entries(m.states||{}).map(([st,x])=>`${esc(st)}: ${Number(x.miles||0).toLocaleString()} mi / ${Number(x.gallons||0).toFixed(1)} gal`).join("<br>")}</div></div>`).join("")||empty("No mileage entries yet.");
+ const sum=document.getElementById("mileageSummary");if(sum){
+  const totals={miles:0,gallons:0};db.mileage.forEach(m=>{totals.miles+=Number(m.totalMiles||0);Object.values(m.states||{}).forEach(x=>totals.gallons+=Number(x.gallons||0))});
+  sum.innerHTML=`<div class="fleet-cards"><div><b>${totals.miles.toLocaleString()}</b><span>Total miles</span></div><div><b>${totals.gallons.toFixed(1)}</b><span>Total gallons</span></div><div><b>${db.mileage.length}</b><span>Entries</span></div></div>`;
+ }
+}
+function openMileageBuilder(){
+ db.mileage=db.mileage||[];
+ const m={date:new Date().toISOString().slice(0,10),driver:"",truck:"B1",startOdo:"",endOdo:"",states:{}};
+ openModal("IFTA Mileage Entry",`
+  <div class="form-grid">
+   <div class="field"><label>Driver <span class="req">*</span></label><input id="m_driver"></div>
+   <div class="field"><label>Date <span class="req">*</span></label><input id="m_date" type="date" value="${m.date}"></div>
+   <div class="field"><label>Truck Number <span class="req">*</span></label><input id="m_truck" placeholder="B1 or 25"></div>
+   <div class="field"><label>Starting Odometer <span class="req">*</span></label><input id="m_start" type="number" min="0" step="1"></div>
+   <div class="field"><label>Ending Odometer <span class="req">*</span></label><input id="m_end" type="number" min="0" step="1"></div>
+   <div class="field"><label>Total Miles</label><input id="m_total" readonly></div>
+  </div>
+  <div class="state-mileage-box">
+   <div class="nameplate-head"><div><b>Miles & Gallons by State</b><div class="muted">Enter only states used during this entry.</div></div><button type="button" class="secondary" onclick="addMileageState()">+ Add State</button></div>
+   <div class="state-head"><div>State</div><div>Miles</div><div>Gallons</div><div></div></div>
+   <div id="stateRows"></div>
+   <div class="state-totals"><b>State Miles: <span id="stateMilesTotal">0</span></b><b>State Gallons: <span id="stateGallonsTotal">0.0</span></b></div>
+  </div>
+  <div id="mileageValidation" class="notice">Enter the odometer readings and state mileage.</div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveMileage()">Save Mileage Entry</button></div>
+ `,()=>{});
+ document.getElementById("m_start").oninput=updateMileageTotals;document.getElementById("m_end").oninput=updateMileageTotals;
+ addMileageState("ME");updateMileageTotals();
+}
+function addMileageState(state=""){
+ const box=document.getElementById("stateRows");if(!box)return;
+ const r=document.createElement("div");r.className="state-row";
+ r.innerHTML=`<select class="state-code">${IFTA_STATES.map(x=>`<option ${x===state?"selected":""}>${x}</option>`).join("")}</select><input class="state-miles" type="number" min="0" step="0.1" value="0"><input class="state-gallons" type="number" min="0" step="0.1" value="0"><button type="button" class="danger-btn" onclick="this.parentElement.remove();updateMileageTotals()">×</button>`;
+ box.appendChild(r);r.querySelectorAll("input,select").forEach(x=>x.addEventListener("input",updateMileageTotals));
+}
+function updateMileageTotals(){
+ const start=Number(document.getElementById("m_start")?.value||0),end=Number(document.getElementById("m_end")?.value||0),total=Math.max(0,end-start);
+ const t=document.getElementById("m_total");if(t)t.value=total;
+ let sm=0,sg=0;document.querySelectorAll(".state-row").forEach(r=>{sm+=Number(r.querySelector(".state-miles")?.value||0);sg+=Number(r.querySelector(".state-gallons")?.value||0)});
+ document.getElementById("stateMilesTotal").textContent=sm.toFixed(1);document.getElementById("stateGallonsTotal").textContent=sg.toFixed(1);
+ const v=document.getElementById("mileageValidation");
+ if(total!==sm)v.innerHTML=`<b>⚠️ State mileage does not match the odometer total.</b> Odometer: ${total.toFixed(1)} miles · State total: ${sm.toFixed(1)} miles.`;
+ else v.innerHTML=`<b>✓ Mileage balances.</b> ${total.toFixed(1)} total miles accounted for by state.`;
+}
+function saveMileage(){
+ const driver=document.getElementById("m_driver").value.trim(),date=document.getElementById("m_date").value,truck=document.getElementById("m_truck").value.trim(),start=Number(document.getElementById("m_start").value||0),end=Number(document.getElementById("m_end").value||0),total=end-start;
+ if(!driver||!date||!truck||start<0||end<start){alert("Enter driver, date, truck number and valid odometer readings.");return}
+ const states={};document.querySelectorAll(".state-row").forEach(r=>{const st=r.querySelector(".state-code").value,mi=Number(r.querySelector(".state-miles").value||0),ga=Number(r.querySelector(".state-gallons").value||0);if(mi||ga)states[st]=(states[st]||{miles:0,gallons:0}),states[st].miles+=mi,states[st].gallons+=ga});
+ const sm=Object.values(states).reduce((a,x)=>a+x.miles,0);
+ if(Math.abs(sm-total)>0.01){alert("State mileage must equal total odometer miles before the entry can be saved.");return}
+ db.mileage=db.mileage||[];db.mileage.push({id:"M-"+(db.mileage.length+1),driver,date,truck,startOdo:start,endOdo:end,totalMiles:total,states,createdAt:new Date().toISOString()});
+ logAudit("Added fleet mileage entry");save();closeModal();render();
 }
 
 function renderCustomers(){
@@ -868,5 +930,7 @@ save();
 
 document.getElementById("addNewMotor")?.addEventListener("click",()=>openNewMotorBuilder());
 document.getElementById("newMotorSearch")?.addEventListener("input",renderNewMotors);
+
+document.getElementById("addMileage")?.addEventListener("click",openMileageBuilder);
 
 render();

@@ -53,3 +53,6 @@
 
 
 .new-motor-stock-note{padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:10px}
+
+.fleet-cards{display:flex;gap:10px;margin:10px 0}.fleet-cards>div{flex:1;padding:12px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc}.fleet-cards b{display:block;font-size:20px}.fleet-cards span{font-size:12px;color:#64748b}.state-mileage-box{border:1px solid #bfdbfe;background:#f8fbff;border-radius:10px;padding:13px;margin:12px 0}.state-head,.state-row{display:grid;grid-template-columns:100px 1fr 1fr 36px;gap:8px;align-items:center;margin:6px 0}.state-row input,.state-row select{width:100%;box-sizing:border-box}.state-totals{display:flex;justify-content:flex-end;gap:24px;border-top:1px solid #cbd5e1;padding-top:9px;margin-top:9px}
+@media(max-width:650px){.fleet-cards{flex-direction:column}.state-head{display:none}.state-row{grid-template-columns:75px 1fr 1fr 30px}}

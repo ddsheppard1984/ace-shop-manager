@@ -189,3 +189,13 @@ V1.7 NEW MOTOR INVENTORY DISPLAY FIX
 - Fixed the New Motors page so its inventory is rendered when the application loads and after changes.
 - New Motors navigation remains available from the sidebar.
 - Existing imported/new-motor records should now appear immediately.
+
+
+V1.8 SIMPLE FLEET / IFTA MILEAGE
+- Added Fleet / IFTA section for trucks B1 and 25 (truck field remains flexible for future trucks).
+- Mileage entry contains only driver, date, truck number, starting odometer, ending odometer, total miles and miles/gallons by state.
+- Total miles are calculated automatically from odometer readings.
+- State mileage must equal total odometer miles before an entry can be saved.
+- Gallons are tracked by state and totaled for reporting.
+- No job number or fuel receipt fields are included.
+- Prototype includes a mileage summary dashboard.
