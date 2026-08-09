@@ -80,6 +80,83 @@ async function saveSupabaseSettings(){
  if(!url||!anonKey){alert("Enter both the local Supabase API URL and anon/publishable key.");return}
  saveSupabaseConfig({url,anonKey}); initSupabase(); await renderDatabasePanel();
 }
+
+/* === ISOLATED EQUIPMENT TEST MODULE === */
+function equipmentTestModule(){
+  return {list:db.equipmentTest||[],types:["Motor","Breaker","Transformer","Switchgear","Recloser","Generator","Pump","Other"]};
+}
+function renderEquipmentTestPanel(){
+  const root=document.getElementById("equipmentTestPanel");
+  if(!root)return;
+  const m=equipmentTestModule();
+  const q=(window.equipmentTestSearch||"").toLowerCase();
+  const type=window.equipmentTestType||"";
+  const rows=m.list.filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
+  root.innerHTML=`<div class="card">
+    <div class="page-head"><div><h2>⚙️ Equipment — TEST</h2><p class="muted">Isolated test module. Your existing database workflow is untouched.</p></div>
+    <button class="primary" onclick="openEquipmentTestForm()">+ Add Equipment</button></div>
+    <div class="toolbar"><input class="search-input" placeholder="Search equipment, serial, customer or job..." value="${esc(q)}" oninput="window.equipmentTestSearch=this.value;renderEquipmentTestPanel()">
+    <select onchange="window.equipmentTestType=this.value;renderEquipmentTestPanel()"><option value="">All types</option>${m.types.map(t=>`<option value="${esc(t)}" ${type===t?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
+    <div class="table-wrap"><table><thead><tr><th>Equipment #</th><th>Type</th><th>Customer</th><th>Job</th><th>Manufacturer</th><th>Model</th><th>Serial #</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button></td></tr>`).join(""):`<tr><td colspan="8"><div class="empty-state">No test equipment records yet.</div></td></tr>`}
+    </tbody></table></div>
+  </div>`;
+}
+function openEquipmentTestForm(){
+  const customers=(db.customers||[]).map(c=>`<option>${esc(c.name)}</option>`).join("");
+  const jobs=(db.jobs||[]).map(j=>`<option>${esc(j.id)}</option>`).join("");
+  const types=equipmentTestModule().types.map(t=>`<option>${esc(t)}</option>`).join("");
+  openModal("Add Equipment — Test",`<div class="form-grid">
+    <div class="field"><label>Equipment #</label><input name="number" placeholder="M-100001"></div>
+    <div class="field"><label>Type</label><select name="type">${types}</select></div>
+    <div class="field"><label>Customer</label><select name="customer"><option value="">— Select —</option>${customers}</select></div>
+    <div class="field"><label>Job</label><select name="job"><option value="">— Select —</option>${jobs}</select></div>
+    <div class="field"><label>Manufacturer</label><input name="manufacturer"></div>
+    <div class="field"><label>Model</label><input name="model"></div>
+    <div class="field"><label>Serial #</label><input name="serial"></div>
+    <div class="field"><label>Horsepower</label><input name="hp" type="number"></div>
+    <div class="field"><label>Voltage</label><input name="voltage"></div>
+    <div class="field"><label>RPM</label><input name="rpm"></div>
+    <div class="field full"><label>Description</label><textarea name="description" rows="3"></textarea></div>
+  </div><div class="form-actions"><button class="secondary" type="button" onclick="closeModal()">Cancel</button><button class="primary">Save Test Equipment</button></div>`,
+  f=>{
+    db.equipmentTest=db.equipmentTest||[];
+    const id="ET-"+Date.now();
+    db.equipmentTest.push({id,number:f.get("number")||`M-${String(100001+db.equipmentTest.length).padStart(6,"0")}`,type:f.get("type"),customer:f.get("customer"),job:f.get("job"),manufacturer:f.get("manufacturer"),model:f.get("model"),serial:f.get("serial"),hp:f.get("hp"),voltage:f.get("voltage"),rpm:f.get("rpm"),description:f.get("description")});
+    save();closeModal();renderEquipmentTestPanel();
+  });
+}
+function viewEquipmentTest(id){
+  const e=(db.equipmentTest||[]).find(x=>x.id===id);if(!e)return;
+  openModal(`Equipment ${esc(e.number)}`,`<div class="detail-grid">
+    <div><strong>Type</strong><span>${esc(e.type)}</span></div><div><strong>Customer</strong><span>${esc(e.customer||"—")}</span></div>
+    <div><strong>Job</strong><span>${esc(e.job||"—")}</span></div><div><strong>Manufacturer</strong><span>${esc(e.manufacturer||"—")}</span></div>
+    <div><strong>Model</strong><span>${esc(e.model||"—")}</span></div><div><strong>Serial</strong><span>${esc(e.serial||"—")}</span></div>
+    <div><strong>HP</strong><span>${esc(e.hp||"—")}</span></div><div><strong>Voltage</strong><span>${esc(e.voltage||"—")}</span></div><div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div>
+  </div><div class="section-title">Description</div><div class="notes-box">${esc(e.description||"—")}</div>
+  <div class="form-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
+}
+function installEquipmentTestPage(){
+  if(document.getElementById("equipment-test"))return;
+  const main=document.querySelector("main");
+  if(!main)return;
+  const sec=document.createElement("section");
+  sec.id="equipment-test";sec.className="view";
+  sec.innerHTML='<div id="equipmentTestPanel"></div>';
+  main.appendChild(sec);
+  const nav=document.querySelector(".sidebar,.nav-list,.sidebar-nav,aside");
+  if(nav && !document.querySelector('[data-view="equipment-test"]')){
+    const b=document.createElement("button");
+    b.className="nav";b.dataset.view="equipment-test";b.textContent="⚙️ Equipment TEST";
+    b.addEventListener("click",()=>{
+      document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+      sec.classList.add("active");
+      renderEquipmentTestPanel();
+    });
+    nav.appendChild(b);
+  }
+}
+
 async function renderDatabasePanel(){
  const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
  let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
@@ -1922,3 +1999,5 @@ document.getElementById("exportReport")?.addEventListener("click",()=>{alert("Ma
 document.getElementById("askAssistant")?.addEventListener("click",()=>{const q=document.getElementById("assistantQuestion").value;document.getElementById("assistantAnswer").innerHTML="<b>Shop Assistant:</b> "+esc(assistantAnswer(q));});
 
 render();
+
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",installEquipmentTestPage)}else{installEquipmentTestPage()}
