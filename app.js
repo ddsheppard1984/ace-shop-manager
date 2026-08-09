@@ -252,6 +252,8 @@ function renderAdmin(){
  document.querySelectorAll(".admin-card").forEach(b=>b.onclick=()=>openAdminTab(b.dataset.adminTab));
 }
 function openAdminTab(tab){
+ ensureEmployeeData(); if(tab==="employees"){const e=document.getElementById("adminPanel");if(e){e.innerHTML='<h3>👷 Employee Tracking</h3><div id="employeeAdminPanel"></div>';renderEmployeeAdmin();}return;}
+
  adminData();const a=db.admin;const el=document.getElementById("adminPanel");let html="";
  if(tab==="company")html=`<h3>Company / Shop Information</h3><div class="form-grid">${motorField("Company Name","a_company",a.company.name)}${motorField("Phone","a_phone",a.company.phone)}${motorField("Email","a_email",a.company.email)}${motorField("Time Zone","a_timezone",a.company.timezone)}${motorText("Address","a_address",a.company.address,2)}</div><button class="primary" onclick="saveAdminTab('company')">Save Company Settings</button>`;
  if(tab==="roles")html=`<h3>Roles & Permissions</h3><div class="role-admin-list">${Object.entries(USER_ROLES).map(([r,p])=>`<div class="role-admin"><b>${esc(r)}</b><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div><div class="notice">Role permissions will become enforced by the production authentication system. The prototype displays the planned access model.</div>`;
@@ -823,6 +825,92 @@ function exportAccountingData(){
  };
  const blob=new Blob([JSON.stringify(bundle,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ace-electric-accounting-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);
  alert("Accounting data exported. The production version can add dedicated import/export mappings for specific accounting platforms.");
+}
+
+
+function ensureEmployeeData(){
+ db.employees=db.employees||[];
+ db.employeeReports=db.employeeReports||{};
+ db.employees.forEach(e=>{e.active=e.active!==false});
+}
+function employeeMinutes(emp){
+ ensureEmployeeData();
+ let mins=(db.timeSlips||[]).filter(x=>x.employee===emp).reduce((a,x)=>a+Number(x.minutes||0),0);
+ mins+=(db.laborSessions||[]).filter(x=>x.technician===emp).reduce((a,x)=>a+Number(x.minutes||0),0);
+ return mins;
+}
+function employeeJobs(emp){
+ const ids=new Set();
+ (db.laborSessions||[]).filter(x=>x.technician===emp).forEach(x=>ids.add(x.jobId));
+ (db.timeSlips||[]).filter(x=>x.employee===emp&&x.jobId).forEach(x=>ids.add(x.jobId));
+ return [...ids];
+}
+function employeeProductivity(emp){
+ ensureEmployeeData();
+ const buckets={};
+ (db.timeSlips||[]).filter(x=>x.employee===emp).forEach(x=>{
+   const key=x.codeName||x.code||"Other"; buckets[key]=(buckets[key]||0)+Number(x.minutes||0);
+ });
+ (db.laborSessions||[]).filter(x=>x.technician===emp).forEach(x=>{
+   const key=x.stage||"Job Time"; buckets[key]=(buckets[key]||0)+Number(x.minutes||0);
+ });
+ return buckets;
+}
+function renderEmployeeProductivity(emp){
+ const buckets=employeeProductivity(emp),total=Object.values(buckets).reduce((a,b)=>a+b,0);
+ return `<div class="productivity-box"><div class="productivity-title"><b>Productivity Breakdown</b><span class="muted">${(total/60).toFixed(2)} total tracked hours</span></div>
+ <div class="productivity-grid">${Object.entries(buckets).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="productivity-row"><div><b>${esc(k)}</b></div><div class="productivity-bar"><span style="width:${total?Math.min(100,(v/total)*100):0}%"></span></div><div>${(v/60).toFixed(2)} hrs</div><div>${total?(v/total*100).toFixed(1):0}%</div></div>`).join("")||empty("No time has been recorded yet.")}</div></div>`;
+}
+function renderEmployeeAdmin(){
+ ensureEmployeeData();
+ const el=document.getElementById("employeeAdminPanel");if(!el)return;
+ const employees=db.employees;
+ el.innerHTML=`<div class="employee-admin-head">
+   <div><b>Employee Tracking & Productivity</b><div class="muted">Time, jobs, labor codes and productivity by employee</div></div>
+   <button class="primary" onclick="openEmployeeBuilder()">+ Add Employee</button>
+ </div>
+ <div class="employee-cards">
+ ${employees.map(e=>{const mins=employeeMinutes(e.name),jobs=employeeJobs(e.name);return `<div class="employee-card ${e.active?"":"inactive"}">
+   <div><b>${esc(e.name)}</b><span>${esc(e.department||"")}${e.role?` · ${esc(e.role)}`:""}</span></div>
+   <div class="employee-stat"><b>${(mins/60).toFixed(2)}</b><span>Total Hours</span></div>
+   <div class="employee-stat"><b>${jobs.length}</b><span>Jobs Worked</span></div>
+   <button class="secondary" onclick="openEmployeeReport('${e.id}')">View Activity & Productivity</button>
+ </div>`}).join("")||empty("No employees have been added yet.")}</div>
+ <div id="employeeReportPanel"></div>`;
+}
+function openEmployeeBuilder(){
+ ensureEmployeeData();
+ openModal("Add Employee",`
+ <div class="form-grid">
+  <div class="field"><label>Employee Name <span class="req">*</span></label><input id="emp_name"></div>
+  <div class="field"><label>Department</label><select id="emp_dept"><option>Motor Repair</option><option>Breaker Shop</option><option>Machine Shop</option><option>Engineering</option><option>Drivers</option><option>Office</option><option>Management</option><option>Other</option></select></div>
+  <div class="field"><label>Role</label><input id="emp_role" placeholder="Technician, Driver, Manager, etc."></div>
+  <div class="field"><label>Employee Number</label><input id="emp_number"></div>
+ </div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveEmployee()">Save Employee</button></div>`,()=>{});
+}
+function saveEmployee(){
+ ensureEmployeeData();
+ const name=document.getElementById("emp_name").value.trim(),department=document.getElementById("emp_dept").value,role=document.getElementById("emp_role").value.trim(),number=document.getElementById("emp_number").value.trim();
+ if(!name){alert("Employee name is required.");return}
+ if(db.employees.some(e=>e.name.toLowerCase()===name.toLowerCase())){alert("That employee already exists.");return}
+ db.employees.push({id:"EMP-"+(db.employees.length+1),name,department,role,employeeNumber:number,active:true,createdAt:new Date().toISOString()});
+ logAudit("Added employee "+name);save();closeModal();render();
+}
+function openEmployeeReport(id){
+ ensureEmployeeData();const e=db.employees.find(x=>x.id===id);if(!e)return;
+ const labor=(db.laborSessions||[]).filter(x=>x.technician===e.name),slips=(db.timeSlips||[]).filter(x=>x.employee===e.name);
+ const jobs=[...new Set([...labor.map(x=>x.jobId),...slips.map(x=>x.jobId).filter(Boolean)])];
+ const minsLabor=labor.reduce((a,x)=>a+Number(x.minutes||0),0),minsSlips=slips.reduce((a,x)=>a+Number(x.minutes||0),0);
+ const panel=document.getElementById("employeeReportPanel");if(!panel)return;
+ panel.innerHTML=`<div class="employee-report">
+  <div class="employee-report-head"><div><h3>${esc(e.name)}</h3><div class="muted">${esc(e.department||"")} ${e.role?`· ${esc(e.role)}`:""}</div></div><div><b>${((minsLabor+minsSlips)/60).toFixed(2)} hrs</b><div class="muted">${jobs.length} jobs</div></div></div>
+  <div class="fleet-cards"><div><b>${(minsLabor/60).toFixed(2)}</b><span>Motor Timer Hours</span></div><div><b>${(minsSlips/60).toFixed(2)}</b><span>Time Slip Hours</span></div><div><b>${jobs.length}</b><span>Jobs Worked</span></div></div>
+  ${renderEmployeeProductivity(e.name)}
+  <h4>Jobs / Work History</h4>
+  <div class="row head employee-history-grid"><div>Date</div><div>Job / Motor</div><div>Type / Code</div><div>Procedure</div><div>Hours</div></div>
+  ${[...labor.map(x=>({date:x.date,job:x.jobId,type:"Timer",code:"",stage:x.stage,mins:x.minutes})),...slips.map(x=>({date:x.date,job:x.jobId,type:"Time Slip",code:x.code,stage:x.codeName,mins:x.minutes}))].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<div class="row employee-history-grid"><div>${esc(x.date)}</div><div>${esc(x.job||"—")}</div><div>${esc(x.type)} ${x.code?`· ${esc(x.code)}`:""}</div><div>${esc(x.stage||"")}</div><div>${(Number(x.mins||0)/60).toFixed(2)}</div></div>`).join("")||empty("No work activity recorded.")}
+ </div>`;
 }
 
 function renderCustomers(){

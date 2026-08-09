@@ -281,3 +281,21 @@ V2.7 ACCOUNTING + TIME SLIPS
 - Accounting export currently produces a structured JSON bundle containing customers, invoices, payments, sales, journal entries, time slips, chart of accounts and inventory/new motors.
 - The production version should add dedicated CSV/Excel mappings and API/connectors for specific accounting platforms (e.g. QuickBooks, Xero, Sage, etc.) rather than claiming one universal import format.
 - Prototype intentionally keeps accounting controls simple; production needs balanced multi-line double-entry journals, locked periods, reconciliation, audit history, tax configuration and accountant review.
+
+
+V2.8 EMPLOYEE TRACKING
+- Added Employee Tracking under Administration.
+- Employees can be grouped by department and role.
+- Employee dashboard shows total hours and jobs worked.
+- Employee activity report combines automatic motor labor timers and manual time slips.
+- Work history shows date, job/motor, time type/code, procedure and hours.
+- Designed for future employee login integration so the system can identify the employee automatically instead of relying on typed names.
+- Production version should add payroll/timeclock permissions, supervisor approvals, PTO/attendance if desired, edit locks and payroll/accounting export.
+
+
+V2.9 EMPLOYEE PRODUCTIVITY TRACKING
+- Employee Tracking now includes a productivity breakdown by time/work code.
+- Combines manual time-slip codes and motor labor timer stages.
+- Displays hours and percentage of tracked time for each category.
+- Designed to show categories such as Shop, Job Misc, Cleaning, Tear Down, Build/Assembly, Inspection, Repair, Testing, Travel and other configured codes.
+- This is intended as an operational productivity view, not a standalone performance rating. Production should support date ranges, department comparisons, approved/locked time and supervisor review before payroll or disciplinary use.
