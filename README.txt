@@ -156,3 +156,20 @@ V1.3 ADMIN NAVIGATION FIX
 - Ensured Users and Administration panels are rendered when the app loads.
 - Added Add User button initialization.
 - Updated prototype version label.
+
+
+V1.4 AUTOMATIC MOTOR MASTER RECORD CREATION
+- Every motor/job created through Job-In automatically creates its permanent Motor Master Record immediately.
+- Existing prototype/test jobs are automatically backfilled into Motor Master Records when the app loads.
+- Master record stores job ID, customer, motor description/type, serial, QR ID and jobbed-in timestamp.
+- The Motor Master Record remains linked to the job for the entire repair lifecycle.
+- Future production database will enforce a true one-to-one motor/job master record and immutable audit history.
+
+
+V1.5 CUSTOMER / INVENTORY IMPORTS
+- Administration now includes Import / Export.
+- Customer CSV import with Name, Contact, Phone, Email, Address and Notes.
+- Inventory CSV import with Part Number, Description, Category, Manufacturer, Quantity, Unit Cost, Location and Reorder Level.
+- Customer and inventory CSV exports are available.
+- Prototype JSON backup export is available.
+- Production version should add validated templates, duplicate matching, preview-before-import, error reporting, rollback, permissions and encrypted cloud backups.

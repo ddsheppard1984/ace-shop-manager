@@ -45,3 +45,8 @@
 @media(max-width:900px){.admin-grid{grid-template-columns:repeat(2,1fr)}.role-admin-list{grid-template-columns:1fr}}@media(max-width:600px){.admin-grid{grid-template-columns:1fr}}
 
 .admin-nav-note{font-size:11px;color:#64748b;padding:8px 12px}
+
+.master-status{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 6px;border-radius:999px}
+
+.import-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.import-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#fff}.import-card b{font-size:15px}.import-card p{font-size:13px;color:#475569;min-height:40px}.import-card button{margin:4px 5px 4px 0}.import-card .muted{font-size:11px;margin-top:8px}
+@media(max-width:900px){.import-grid{grid-template-columns:1fr}}

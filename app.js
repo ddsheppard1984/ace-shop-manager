@@ -69,7 +69,7 @@ function renderMotorRecords(){
  `<div class="row head"><div>Job / Customer</div><div>Equipment</div><div>Serial</div><div>Progress</div></div>`+
  a.map(j=>`<div class="row clickable" onclick="openMotorRecord('${j.id}')">
  <div><strong>${esc(j.id)}</strong><div class="muted">${esc(j.customer)}</div></div>
- <div>${esc(j.type)}<div class="muted">${j.motor?.manufacturer?esc(j.motor.manufacturer):"Manufacturer not entered"} ${j.hp?j.hp+" HP":""}</div></div>
+ <div>${esc(j.type)}<div class="muted">${j.motor?.manufacturer?esc(j.motor.manufacturer):"Manufacturer not entered"} ${j.hp?j.hp+" HP":""}</div><span class="master-status">Master Record: Active</span></div>
  <div>${esc(j.serial||"—")}</div>
  <div>${jobPct(j)}%</div></div>`).join("")||empty("No motor records yet.");
 }
@@ -252,6 +252,12 @@ function openAdminTab(tab){
  if(tab==="roles")html=`<h3>Roles & Permissions</h3><div class="role-admin-list">${Object.entries(USER_ROLES).map(([r,p])=>`<div class="role-admin"><b>${esc(r)}</b><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div><div class="notice">Role permissions will become enforced by the production authentication system. The prototype displays the planned access model.</div>`;
  if(tab==="rates")html=`<h3>Labor & Quote Rates</h3><div class="form-grid">${motorField("Default Labor Rate","a_laborRate",a.rates.laborRate,"number")}${motorField("Tax Rate %","a_taxRate",a.rates.taxRate,"number")}${motorField("Default Parts Markup %","a_markup",a.rates.markup,"number")}${motorField("Quote Valid Days","a_quoteValidDays",a.rates.quoteValidDays,"number")}</div><button class="primary" onclick="saveAdminTab('rates')">Save Rate Settings</button>`;
  if(tab==="procedures")html=`<h3>Shop Procedures</h3><div class="procedure-admin">${Object.entries(db.procedures).map(([k,items])=>`<div class="procedure-card"><b>${esc(k)}</b><ol>${items.map((x,i)=>`<li><input value="${esc(x)}" data-proc="${esc(k)}" data-index="${i}"></li>`).join("")}</ol><button class="secondary" onclick="addProcedure('${k}')">+ Add Procedure</button></div>`).join("")}</div><button class="primary" onclick="saveProcedures()">Save Procedures</button>`;
+ if(tab==="imports")html=`<h3>Import / Export</h3>
+  <div class="import-grid">
+   <div class="import-card"><b>👥 Customers</b><p>Import an existing customer list from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('customers')">📥 Import Customers</button><button class="secondary" onclick="exportCustomersCsv()">📤 Export Customers</button><div class="muted">Expected columns: Name, Contact, Phone, Email, Address, Notes</div></div>
+   <div class="import-card"><b>📦 Inventory</b><p>Import parts, bearings and inventory from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('inventory')">📥 Import Inventory</button><button class="secondary" onclick="exportInventoryCsv()">📤 Export Inventory</button><div class="muted">Expected columns: Part Number, Description, Category, Manufacturer, Quantity, Unit Cost, Location, Reorder Level</div></div>
+   <div class="import-card"><b>💾 Prototype Backup</b><p>Export the current prototype data as a JSON backup file.</p><button class="secondary" onclick="exportPrototypeBackup()">📤 Export Backup</button><div class="muted">Production will use scheduled encrypted cloud backups.</div></div>
+  </div>`; 
  if(tab==="parts")html=`<h3>Parts / Bearings Catalog</h3><div class="notice">Prototype placeholder for the AC Electric parts catalog. Production version will support bearing numbers, manufacturers, seals, prices, suppliers, stock levels and approved substitutes.</div><button class="primary" onclick="alert('Parts catalog framework ready for the next build.')">Configure Catalog</button>`;
  if(tab==="delivery")html=`<h3>Delivery Settings</h3><div class="form-grid">${motorText("Default Drivers","a_drivers",a.delivery.defaultDrivers,2)}<div class="field"><label>Require customer signature on delivery</label><select id="a_deliverySig"><option value="1" ${a.delivery.requireDeliverySignature?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDeliverySignature?"selected":""}>No</option></select></div><div class="field"><label>Require damage photo when damaged</label><select id="a_damagePhoto"><option value="1" ${a.delivery.requireDamagePhoto?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDamagePhoto?"selected":""}>No</option></select></div></div><button class="primary" onclick="saveAdminTab('delivery')">Save Delivery Settings</button>`;
  if(tab==="audit")html=`<h3>Audit Log</h3><div class="audit-list">${(db.audit||[]).slice().reverse().map(x=>`<div><b>${esc(x.action)}</b> · ${esc(x.user||"System")}<span>${esc(x.at||"")}</span></div>`).join("")||empty("No activity recorded yet.")}</div>`;
@@ -273,6 +279,59 @@ function saveProcedures(){
 function addProcedure(k){db.procedures[k].push("New procedure step");save();openAdminTab("procedures")}
 function logAudit(action,user="Prototype Admin"){db.audit=db.audit||[];db.audit.push({action,user,at:new Date().toLocaleString()});if(db.audit.length>500)db.audit.shift()}
 function val(id){return document.getElementById(id)?.value||""}
+
+
+function downloadTextFile(filename,text,type="text/csv"){
+ const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+function csvEscape(v){v=String(v??"");return `"${v.replace(/"/g,'""')}"`}
+function exportCustomersCsv(){
+ const rows=[["Name","Contact","Phone","Email","Address","Notes"]];
+ (db.customers||[]).forEach(c=>rows.push([c.name,c.contact,c.phone,c.email,c.address,c.notes]));
+ downloadTextFile("AC-Electric-Customers.csv",rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+}
+function exportInventoryCsv(){
+ const rows=[["Part Number","Description","Category","Manufacturer","Quantity","Unit Cost","Location","Reorder Level"]];
+ (db.inventory||[]).forEach(i=>rows.push([i.part||i.sku,i.description||i.name,i.category,i.manufacturer,i.qty||i.quantity,i.cost||i.unitCost,i.location,i.reorderLevel]));
+ downloadTextFile("AC-Electric-Inventory.csv",rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+}
+function importCsv(kind){
+ const input=document.createElement("input");input.type="file";input.accept=".csv,text/csv";
+ input.onchange=async()=>{
+  const f=input.files?.[0];if(!f)return;
+  const text=await f.text();const rows=parseCSV(text);
+  if(rows.length<2){alert("The CSV needs a header row and at least one data row.");return}
+  const headers=rows[0].map(h=>h.trim().toLowerCase());
+  if(kind==="customers"){
+   db.customers=db.customers||[];
+   rows.slice(1).filter(r=>r.some(Boolean)).forEach(r=>{const o=Object.fromEntries(headers.map((h,i)=>[h,r[i]||""]));if(o.name)db.customers.push({id:"C-"+(db.customers.length+1),name:o.name,contact:o.contact||"",phone:o.phone||"",email:o.email||"",address:o.address||"",notes:o.notes||""})});
+  }else{
+   db.inventory=db.inventory||[];
+   rows.slice(1).filter(r=>r.some(Boolean)).forEach(r=>{const o=Object.fromEntries(headers.map((h,i)=>[h,r[i]||""]));if(o["part number"]||o.part||o.sku)db.inventory.push({id:"P-"+(db.inventory.length+1),part:o["part number"]||o.part||o.sku,description:o.description||o.name||"",category:o.category||"",manufacturer:o.manufacturer||"",qty:Number(o.quantity||o.qty||0),cost:Number(o["unit cost"]||o.cost||0),location:o.location||"",reorderLevel:Number(o["reorder level"]||o.reorderlevel||0)})});
+  }
+  logAudit("Imported "+kind+" CSV");
+  save();render();openAdminTab("imports");
+  alert("Import complete.");
+ };
+ input.click();
+}
+function parseCSV(text){
+ const out=[];let row=[],cell="",quoted=false;
+ for(let i=0;i<text.length;i++){const ch=text[i],nx=text[i+1];
+  if(ch==='"'&&quoted&&nx==='"'){cell+='"';i++;continue}
+  if(ch==='"'){quoted=!quoted;continue}
+  if(ch===','&&!quoted){row.push(cell);cell="";continue}
+  if((ch==="\n"||ch==="\r")&&!quoted){if(ch==="\r"&&nx==="\n")i++;row.push(cell);cell="";if(row.some(x=>x!==""))out.push(row);row=[];continue}
+  cell+=ch;
+ }
+ if(cell||row.length){row.push(cell);if(row.some(x=>x!==""))out.push(row)}
+ return out;
+}
+function exportPrototypeBackup(){
+ const copy=JSON.parse(JSON.stringify(db));delete copy.users?.forEach?.(()=>{});
+ downloadTextFile("ACE-Shop-Manager-backup.json",JSON.stringify(copy,null,2),"application/json");
+ logAudit("Exported prototype backup");
+}
 
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
@@ -724,10 +783,28 @@ function editJob(id){
 </div>`,()=>{});
  document.querySelectorAll(".wfcheck").forEach(c=>c.onchange=()=>{j.checks=j.checks||{};j.checks[c.dataset.key]=j.checks[c.dataset.key]||[];j.checks[c.dataset.key][+c.dataset.i]=c.checked;save()})
 }
+
+function ensureMotorMasterRecord(j){
+ if(!j)return;
+ j.motor=j.motor||{};
+ j.motorMaster=j.motorMaster||{};
+ j.motorMaster.createdAt=j.motorMaster.createdAt||new Date().toISOString();
+ j.motorMaster.jobbedInAt=j.motorMaster.jobbedInAt||new Date().toISOString();
+ j.motorMaster.status="Active";
+ j.motorMaster.jobId=j.id;
+ j.motorMaster.customer=j.customer;
+ j.motorMaster.description=j.type||"Motor";
+ j.motorMaster.serial=j.serial||j.motor?.serial||"";
+ j.motorMaster.qrId=j.id;
+}
+
 function saveJobNotes(id){let j=db.jobs.find(x=>x.id===id);j.notes=document.getElementById("jn").value;save();closeModal();render()}
 
 renderUsers();
 renderAdmin();
 document.getElementById("addUser")?.addEventListener("click",()=>openUserBuilder());
+
+db.jobs.forEach(ensureMotorMasterRecord);
+save();
 
 render();
