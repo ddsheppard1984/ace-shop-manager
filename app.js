@@ -25,7 +25,70 @@ const initial={
  ]
 };
 let db=JSON.parse(localStorage.getItem(KEY)||"null")||initial;
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+const SUPA_KEY="ace_supabase_config_v1";
+let supabaseClient=null;
+let supabaseUser=null;
+function getSupabaseConfig(){return JSON.parse(localStorage.getItem(SUPA_KEY)||"null")}
+function saveSupabaseConfig(c){localStorage.setItem(SUPA_KEY,JSON.stringify(c))}
+function initSupabase(){
+ const c=getSupabaseConfig();
+ if(!c||!window.supabase)return false;
+ try{supabaseClient=window.supabase.createClient(c.url,c.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return true}catch(e){console.error(e);return false}
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(db)); if(supabaseClient) queueSupabaseSync()}
+let supaSyncTimer=null;
+function queueSupabaseSync(){clearTimeout(supaSyncTimer);supaSyncTimer=setTimeout(()=>syncCoreToSupabase().catch(e=>console.warn("Supabase sync:",e)),700)}
+async function syncCoreToSupabase(){
+ if(!supabaseClient)return; const {data:{session}}=await supabaseClient.auth.getSession(); if(!session)return;
+ // Only sync the core prototype collections for now; the remaining modules are migrated in later passes.
+ const cust=(db.customers||[]).filter(x=>x.name).map(x=>({customer_number:String(x.customerNumber||x.id||"").startsWith("C-")?String(x.customerNumber||x.id):null,company_name:x.name,contact_name:x.contact||null,phone:x.phone||null,email:x.email||null,notes:x.notes||null}));
+ for(const c of cust){if(c.customer_number){await supabaseClient.from("customers").upsert(c,{onConflict:"customer_number"})}}
+ const {data:remoteCustomers}=await supabaseClient.from("customers").select("id,customer_number,company_name");
+ const byName=new Map((remoteCustomers||[]).map(x=>[x.company_name,x.id]));
+ const jobs=(db.jobs||[]).filter(x=>x.id).map(x=>({job_number:String(x.id),customer_id:byName.get(x.customer)||null,equipment_type:x.type||"Motor",job_type:"Repair",description:x.notes||x.type||"",status:x.stage||"Jobbed In",priority:x.priority||"Normal",notes:x.notes||null}));
+ for(const j of jobs){await supabaseClient.from("jobs").upsert(j,{onConflict:"job_number"})}
+ const inv=(db.inventory||[]).filter(x=>x.part).map(x=>({part_number:String(x.part),description:x.desc||x.description||x.part,quantity:Number(x.qty||0),minimum_quantity:Number(x.min||0),unit_cost:Number(x.cost||0)}));
+ for(const i of inv){await supabaseClient.from("inventory_items").upsert(i,{onConflict:"part_number"})}
+}
+async function loadCoreFromSupabase(){
+ if(!supabaseClient)throw new Error("Connect to Supabase first.");
+ const {data:{session}}=await supabaseClient.auth.getSession(); if(!session)throw new Error("Sign in first.");
+ const [c,j,i,q,inv]=await Promise.all([
+  supabaseClient.from("customers").select("id,customer_number,company_name,contact_name,phone,email,notes").order("company_name"),
+  supabaseClient.from("jobs").select("job_number,customer_id,equipment_type,description,status,priority,notes,customers(company_name)").order("job_number"),
+  supabaseClient.from("inventory_items").select("part_number,description,quantity,minimum_quantity,unit_cost").order("part_number"),
+  supabaseClient.from("quotes").select("quote_number,total,status,job_id,engineering_job_id,customers(company_name)").order("quote_number"),
+  supabaseClient.from("invoices").select("invoice_number,total,balance_due,status,invoice_date,due_date,customers(company_name)").order("invoice_number")
+ ]);
+ for(const r of [c,j,i,q,inv])if(r.error)throw r.error;
+ db.customers=(c.data||[]).map(x=>({id:x.id,name:x.company_name,contact:x.contact_name||"",phone:x.phone||"",email:x.email||"",notes:x.notes||""}));
+ db.jobs=(j.data||[]).map(x=>({id:x.job_number,customer:x.customers?.company_name||"",type:x.equipment_type||"",hp:"",voltage:"",serial:"",stage:x.status||"Jobbed In",priority:x.priority||"Normal",notes:x.notes||x.description||""}));
+ db.inventory=(i.data||[]).map(x=>({part:x.part_number,desc:x.description,qty:Number(x.quantity||0),min:Number(x.minimum_quantity||0),cost:Number(x.unit_cost||0)}));
+ db.quotes=(q.data||[]).map(x=>({id:x.quote_number,customer:x.customers?.company_name||"",job:"",amount:Number(x.total||0),status:x.status||"Draft"}));
+ db.invoices=(inv.data||[]).map(x=>({id:x.invoice_number,customer:x.customers?.company_name||"",total:Number(x.total||0),balance:Number(x.balance_due||0),status:x.status||"Open",invoiceDate:x.invoice_date,dueDate:x.due_date}));
+ localStorage.setItem(KEY,JSON.stringify(db)); render();
+}
+async function signInSupabase(){
+ if(!supabaseClient)throw new Error("Save a Supabase URL and anon key first.");
+ const email=document.getElementById("supa_email")?.value.trim(),password=document.getElementById("supa_password")?.value;
+ if(!email||!password)throw new Error("Enter the test login email and password.");
+ const {data,error}=await supabaseClient.auth.signInWithPassword({email,password}); if(error)throw error; supabaseUser=data.user; await renderDatabasePanel();
+}
+async function signOutSupabase(){if(supabaseClient)await supabaseClient.auth.signOut();supabaseUser=null;await renderDatabasePanel()}
+async function saveSupabaseSettings(){
+ const url=document.getElementById("supa_url").value.trim().replace(/\/$/,""),anonKey=document.getElementById("supa_anon").value.trim();
+ if(!url||!anonKey){alert("Enter both the local Supabase API URL and anon/publishable key.");return}
+ saveSupabaseConfig({url,anonKey}); initSupabase(); await renderDatabasePanel();
+}
+async function renderDatabasePanel(){
+ const el=document.getElementById("databasePanel");if(!el)return; const c=getSupabaseConfig()||{url:"http://127.0.0.1:54321",anonKey:""}; if(!supabaseClient)initSupabase();
+ let session=null; if(supabaseClient){try{session=(await supabaseClient.auth.getSession()).data.session}catch(e){}}
+ el.innerHTML=`<div class="db-connection-grid"><div><h4>Local Supabase</h4><p class="muted">Use the API URL and anon/publishable key from <code>npx.cmd supabase status</code> on your laptop.</p><div class="form-grid"><div class="field"><label>API URL</label><input id="supa_url" value="${esc(c.url)}"></div><div class="field"><label>Anon / Publishable Key</label><input id="supa_anon" type="password" value="${esc(c.anonKey)}"></div></div><button class="primary" id="saveSupa">Save Connection</button></div><div><h4>Authentication</h4><p class="muted">Local test accounts only.</p><div class="form-grid"><div class="field"><label>Email</label><input id="supa_email" value="${session?.user?.email||"admin@test.local"}"></div><div class="field"><label>Password</label><input id="supa_password" type="password" placeholder="Local test password"></div></div><div class="button-row"><button class="primary" id="supaLogin">Sign In</button><button class="secondary" id="supaLogout">Sign Out</button></div><div class="notice">Status: <b>${session?"Connected as "+esc(session.user.email):"Not signed in"}</b></div></div></div><div class="db-actions"><button class="primary" id="supaLoad" ${session?"":"disabled"}>⬇ Load Database Data</button><button class="secondary" id="supaPush" ${session?"":"disabled"}>⬆ Push Core Prototype Data</button></div><div class="notice"><b>Current scope:</b> customers, jobs, inventory, quotes and invoices are connected first. We will migrate engineering, motors, time, IFTA, deliveries, documents and accounting in the next connection pass.</div><div id="dbMessage"></div>`;
+ document.getElementById("saveSupa").onclick=saveSupabaseSettings; document.getElementById("supaLogin").onclick=async()=>{try{await signInSupabase()}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}}; document.getElementById("supaLogout").onclick=signOutSupabase;
+ document.getElementById("supaLoad").onclick=async()=>{try{await loadCoreFromSupabase();alert("Database data loaded into the application.")}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}};
+ document.getElementById("supaPush").onclick=async()=>{try{await syncCoreToSupabase();document.getElementById("dbMessage").innerHTML='<div class="notice">Core prototype data pushed to PostgreSQL.</div>'}catch(e){document.getElementById("dbMessage").innerHTML='<div class="action-alert danger">'+esc(e.message||e)+'</div>'}};
+}
+
 function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function money(n){return "$"+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
 function nav(view){
@@ -39,6 +102,7 @@ db.users=db.users||[
  {id:"U-2",name:"Prototype Supervisor",username:"supervisor",role:"Supervisor",active:true},
  {id:"U-3",name:"Prototype Technician",username:"tech1",role:"Technician",active:true}
 ];
+initSupabase();
 render();
 const motorParam=new URLSearchParams(location.search).get('motor'); if(motorParam && db.jobs.some(j=>j.id===motorParam)){setTimeout(()=>editJob(motorParam),100);}
 }
@@ -399,6 +463,7 @@ function openAdminTab(tab){
 
 
  adminData();const a=db.admin;const el=document.getElementById("adminPanel");let html="";
+ if(tab==="database")html=`<h3>🗄️ Local Supabase Database</h3><div id="databasePanel"></div>`;
  if(tab==="company")html=`<h3>Company / Shop Information</h3><div class="form-grid">${motorField("Company Name","a_company",a.company.name)}${motorField("Phone","a_phone",a.company.phone)}${motorField("Email","a_email",a.company.email)}${motorField("Time Zone","a_timezone",a.company.timezone)}${motorText("Address","a_address",a.company.address,2)}</div><button class="primary" onclick="saveAdminTab('company')">Save Company Settings</button>`;
  if(tab==="roles")html=`<h3>Roles & Permissions</h3><div class="role-admin-list">${Object.entries(USER_ROLES).map(([r,p])=>`<div class="role-admin"><b>${esc(r)}</b><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div><div class="notice">Role permissions will become enforced by the production authentication system. The prototype displays the planned access model.</div>`;
  if(tab==="rates")html=`<h3>Labor & Quote Rates</h3><div class="form-grid">${motorField("Default Labor Rate","a_laborRate",a.rates.laborRate,"number")}${motorField("Tax Rate %","a_taxRate",a.rates.taxRate,"number")}${motorField("Default Parts Markup %","a_markup",a.rates.markup,"number")}${motorField("Quote Valid Days","a_quoteValidDays",a.rates.quoteValidDays,"number")}</div><button class="primary" onclick="saveAdminTab('rates')">Save Rate Settings</button>`;
@@ -417,7 +482,7 @@ function openAdminTab(tab){
  if(tab==="audit")html=`<h3>Audit Log</h3><div class="audit-list">${(db.audit||[]).slice().reverse().map(x=>`<div><b>${esc(x.action)}</b> · ${esc(x.user||"System")}<span>${esc(x.at||"")}</span></div>`).join("")||empty("No activity recorded yet.")}</div>`;
  if(tab==="system")html=`<h3>System / Production Readiness</h3><div class="notice"><b>Current prototype:</b> GitHub Pages + browser-local demo data. Do not use real customer, employee, signature or production job data here.</div><div class="system-checks"><div>🔐 Authentication: <b>Production required</b></div><div>🗄️ Managed database: <b>Production required</b></div><div>📷 Private photo storage: <b>Production required</b></div><div>💾 Automated backups: <b>Production required</b></div><div>📝 Audit logging: <b>Prototype framework</b></div><div>📱 iPhone/iPad/Windows: <b>Supported by web app</b></div></div>`;
  el.innerHTML=html;
- if(tab==='ifta')renderIFTAAdmin();
+ if(tab==='ifta')renderIFTAAdmin(); if(tab==='database')renderDatabasePanel();
 }
 function saveAdminTab(tab){
  adminData();

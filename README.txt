@@ -368,3 +368,13 @@ V4.0 FULL OPERATIONS PLATFORM PROTOTYPE
 
 IMPORTANT PRODUCTION NOTE:
 This remains a prototype using browser local storage. A production deployment should use a real authenticated cloud database, encrypted object storage, role-based server permissions, MFA, audit logs, backups, locked accounting periods, secure API integrations, proper accounting controls and legal/security review. The prototype's "Shop Assistant" is rule-based and does not call an external AI service.
+
+V5.0 LOCAL DATABASE CONNECTION
+- Added Supabase JS client and Local Database administration panel.
+- Stores the local Supabase API URL and anon/publishable key in browser local storage (never in Git).
+- Supports local test authentication with Supabase Auth.
+- Supports loading customers, jobs, inventory, quotes and invoices from PostgreSQL into the application.
+- Supports pushing those core prototype collections back to PostgreSQL.
+- Existing browser-local prototype remains as a fallback until the remaining modules are migrated.
+- For local testing use the API URL and anon/publishable key shown by: npx.cmd supabase status
+- Do NOT put a service-role key into the application or GitHub.
