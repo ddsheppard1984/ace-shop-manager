@@ -67,3 +67,5 @@
 @media(max-width:700px){.timer-card{flex-wrap:wrap}.timer-live{width:100%}}
 
 .ifta-admin-card{border:2px solid #93c5fd;background:#eff6ff}.ifta-admin-card b{font-size:16px}.ifta-admin-card span{font-weight:600}
+
+.sales-actions{display:flex;gap:8px}.sales-badge{padding:4px 8px;border-radius:999px}.sales-paid{background:#dcfce7;color:#166534}.sales-open{background:#fef3c7;color:#92400e}

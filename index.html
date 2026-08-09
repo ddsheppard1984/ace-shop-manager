@@ -23,6 +23,7 @@
       <button class="nav" data-view="inventory">Inventory / Parts</button>
       <button class="nav" data-view="new-motors">New Motors</button>
       <button class="nav" data-view="quotes">Quotes</button>
+      <button class="nav" data-view="sales">💳 Sales / POS & Invoices</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
       <button class="nav" data-view="fleet">🚛 Fleet / IFTA</button>
       <button class="nav" data-view="labor">⏱️ Technician Time</button>
@@ -128,6 +129,18 @@
         <div id="activeTimerPanel"></div>
         <div id="laborSummary"></div>
         <div id="laborTable"></div>
+      </div>
+    </section>
+
+    <section id="sales" class="view">
+      <div class="toolbar">
+        <button class="primary" id="newSale">+ New POS Sale</button>
+        <button class="secondary" id="newInvoice">+ New Invoice</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>💳 Sales / POS & Invoices</h2><span class="muted">Sales, invoices, payments and customer balances</span></div>
+        <div id="salesSummary"></div>
+        <div id="salesTable"></div>
       </div>
     </section>
 

@@ -54,6 +54,7 @@ function render(){
  const low=db.inventory.filter(i=>i.qty<=i.min);
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
  renderCustomers();renderJobs();renderInventory();renderNewMotors();
+ renderSales();
  renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
@@ -560,6 +561,95 @@ function jobLaborSummary(jobId){
  return {minutes:mins,sessions:rows};
 }
 
+
+function ensureSalesData(){
+ db.sales=db.sales||[];
+ db.invoices=db.invoices||[];
+ db.payments=db.payments||[];
+}
+function money(n){return Number(n||0).toLocaleString(undefined,{style:"currency",currency:"USD"})}
+function nextNumber(prefix,list){return `${prefix}-${new Date().getFullYear()}-${String((list?.length||0)+1).padStart(5,"0")}`}
+function renderSales(){
+ ensureSalesData();
+ const summary=document.getElementById("salesSummary"),table=document.getElementById("salesTable");if(!summary)return;
+ const salesTotal=db.sales.reduce((a,x)=>a+Number(x.total||0),0);
+ const invoiceTotal=db.invoices.reduce((a,x)=>a+Number(x.total||0),0);
+ const paid=db.invoices.reduce((a,x)=>a+Number(x.paid||0),0);
+ const outstanding=invoiceTotal-paid;
+ summary.innerHTML=`<div class="fleet-cards"><div><b>${money(salesTotal)}</b><span>POS Sales</span></div><div><b>${money(invoiceTotal)}</b><span>Invoices</span></div><div><b>${money(paid)}</b><span>Payments</span></div><div><b>${money(outstanding)}</b><span>Outstanding</span></div></div>`;
+ const rows=[
+  ...db.sales.map(x=>({kind:"POS Sale",number:x.number,date:x.date,customer:x.customer,total:x.total,status:"Paid",method:x.paymentMethod||"—"})),
+  ...db.invoices.map(x=>({kind:"Invoice",number:x.number,date:x.date,customer:x.customer,total:x.total,status:Number(x.paid||0)>=Number(x.total||0)?"Paid":Number(x.paid||0)>0?"Partial":"Open",method:x.paymentMethod||"—"}))
+ ].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ table.innerHTML=`<div class="row head"><div>Type / Number</div><div>Date</div><div>Customer</div><div>Total</div><div>Status</div><div>Payment</div></div>`+
+ rows.map(x=>`<div class="row"><div><b>${esc(x.kind)}</b><div class="muted">${esc(x.number)}</div></div><div>${esc(x.date)}</div><div>${esc(x.customer||"Walk-in")}</div><div><b>${money(x.total)}</b></div><div>${esc(x.status)}</div><div>${esc(x.method)}</div></div>`).join("")||empty("No sales or invoices yet.");
+}
+function customerOptions(){
+ ensureSalesData();const cs=db.customers||[];
+ return `<option value="">Select customer...</option>`+cs.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+}
+function openSaleBuilder(){
+ ensureSalesData();
+ openModal("New POS Sale",`
+  <div class="form-grid">
+   <div class="field"><label>Customer</label><select id="sale_customer">${customerOptions()}</select></div>
+   <div class="field"><label>Sale Date</label><input id="sale_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+   <div class="field"><label>Item / Description</label><input id="sale_desc" placeholder="New motor, bearing, repair, etc."></div>
+   <div class="field"><label>Quantity</label><input id="sale_qty" type="number" min="1" value="1"></div>
+   <div class="field"><label>Unit Price</label><input id="sale_price" type="number" min="0" step="0.01" value="0"></div>
+   <div class="field"><label>Tax %</label><input id="sale_tax" type="number" min="0" step="0.01" value="${db.admin?.rates?.taxRate||0}"></div>
+   <div class="field"><label>Payment Method</label><select id="sale_method"><option>Card</option><option>Cash</option><option>Check</option><option>Other</option></select></div>
+  </div>
+  <div id="sale_total_preview" class="notice">Total: $0.00</div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveSale()">Complete Sale</button></div>
+ `,()=>{});
+ ["sale_qty","sale_price","sale_tax"].forEach(id=>document.getElementById(id)?.addEventListener("input",updateSaleTotal));
+ updateSaleTotal();
+}
+function updateSaleTotal(){
+ const q=Number(document.getElementById("sale_qty")?.value||0),p=Number(document.getElementById("sale_price")?.value||0),t=Number(document.getElementById("sale_tax")?.value||0);
+ const subtotal=q*p,total=subtotal+(subtotal*t/100);
+ const el=document.getElementById("sale_total_preview");if(el)el.innerHTML=`Subtotal: ${money(subtotal)} · Tax: ${money(subtotal*t/100)} · <b>Total: ${money(total)}</b>`;
+}
+function saveSale(){
+ const customer=document.getElementById("sale_customer").value,desc=document.getElementById("sale_desc").value.trim(),date=document.getElementById("sale_date").value,qty=Number(document.getElementById("sale_qty").value||0),price=Number(document.getElementById("sale_price").value||0),tax=Number(document.getElementById("sale_tax").value||0),method=document.getElementById("sale_method").value;
+ if(!desc||qty<=0||price<0){alert("Enter an item/description, quantity and valid price.");return}
+ const subtotal=qty*price,total=subtotal+(subtotal*tax/100);
+ db.sales.push({id:"S-"+(db.sales.length+1),number:nextNumber("POS",db.sales),customer,date,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:total,paymentMethod:method,createdAt:new Date().toISOString()});
+ logAudit("Completed POS sale");save();closeModal();render();
+}
+function openInvoiceBuilder(){
+ ensureSalesData();
+ openModal("New Invoice",`
+  <div class="form-grid">
+   <div class="field"><label>Customer <span class="req">*</span></label><select id="inv_customer">${customerOptions()}</select></div>
+   <div class="field"><label>Invoice Date</label><input id="inv_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+   <div class="field"><label>Due Date</label><input id="inv_due" type="date"></div>
+   <div class="field"><label>Job / Motor #</label><input id="inv_job" placeholder="Optional"></div>
+   <div class="field"><label>Description</label><input id="inv_desc" placeholder="Motor repair, parts, service, etc."></div>
+   <div class="field"><label>Quantity</label><input id="inv_qty" type="number" min="1" value="1"></div>
+   <div class="field"><label>Unit Price</label><input id="inv_price" type="number" min="0" step="0.01" value="0"></div>
+   <div class="field"><label>Tax %</label><input id="inv_tax" type="number" min="0" step="0.01" value="${db.admin?.rates?.taxRate||0}"></div>
+  </div>
+  <div id="invoice_total_preview" class="notice">Total: $0.00</div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveInvoice()">Create Invoice</button></div>
+ `,()=>{});
+ ["inv_qty","inv_price","inv_tax"].forEach(id=>document.getElementById(id)?.addEventListener("input",updateInvoiceTotal));
+ updateInvoiceTotal();
+}
+function updateInvoiceTotal(){
+ const q=Number(document.getElementById("inv_qty")?.value||0),p=Number(document.getElementById("inv_price")?.value||0),t=Number(document.getElementById("inv_tax")?.value||0);
+ const subtotal=q*p,total=subtotal+(subtotal*t/100),el=document.getElementById("invoice_total_preview");
+ if(el)el.innerHTML=`Subtotal: ${money(subtotal)} · Tax: ${money(subtotal*t/100)} · <b>Total: ${money(total)}</b>`;
+}
+function saveInvoice(){
+ const customer=document.getElementById("inv_customer").value,date=document.getElementById("inv_date").value,due=document.getElementById("inv_due").value,job=document.getElementById("inv_job").value.trim(),desc=document.getElementById("inv_desc").value.trim(),qty=Number(document.getElementById("inv_qty").value||0),price=Number(document.getElementById("inv_price").value||0),tax=Number(document.getElementById("inv_tax").value||0);
+ if(!customer||!desc||qty<=0||price<0){alert("Select a customer and enter a description, quantity and valid price.");return}
+ const subtotal=qty*price,total=subtotal+(subtotal*tax/100);
+ db.invoices.push({id:"I-"+(db.invoices.length+1),number:nextNumber("INV",db.invoices),customer,date,dueDate:due,jobId:job,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:0,status:"Open",createdAt:new Date().toISOString()});
+ logAudit("Created invoice");save();closeModal();render();
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
@@ -1038,5 +1128,8 @@ document.getElementById("addNewMotor")?.addEventListener("click",()=>openNewMoto
 document.getElementById("newMotorSearch")?.addEventListener("input",renderNewMotors);
 
 document.getElementById("addMileage")?.addEventListener("click",openMileageBuilder);
+
+document.getElementById("newSale")?.addEventListener("click",openSaleBuilder);
+document.getElementById("newInvoice")?.addEventListener("click",openInvoiceBuilder);
 
 render();

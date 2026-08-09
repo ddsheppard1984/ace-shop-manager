@@ -242,3 +242,12 @@ V2.3 ADMIN IFTA CARD FIX
 - Added the missing Fleet / IFTA card directly to the Administration HTML grid.
 - The card is visibly highlighted so it is easy to find.
 - It opens the existing quarterly Fleet / IFTA running log, including state totals and quarter finalization.
+
+
+V2.4 POS / INVOICING
+- Added dedicated Sales / POS & Invoices section rather than hiding POS inside Customers.
+- Customer records remain the customer master; sales/invoices are transaction records linked by customer name in the prototype.
+- POS sales support customer, date, item, quantity, unit price, tax and payment method.
+- Invoices support customer, date, due date, optional job/motor number, description, quantity, unit price and tax.
+- Dashboard shows POS sales, invoice totals, payments and outstanding balance.
+- Production version should add line-item inventory selection, payment processing integration, invoice PDF/email, numbering controls, refunds/voids, customer statements, accounting integration and strict permissions.
