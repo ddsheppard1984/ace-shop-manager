@@ -38,3 +38,5 @@
 .qr-card{text-align:center;padding:12px}.qr-card img{width:220px;height:220px;image-rendering:auto;border:1px solid #e2e8f0;padding:8px;background:#fff}.quote-send-card{padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;margin-bottom:12px}
 
 .nameplate-sheet{border:1px solid #bfdbfe;background:#f8fbff;border-radius:10px;padding:13px;margin:12px 0}.nameplate-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}.nameplate-head b{font-size:15px}.nameplate-actions{margin-top:10px}
+
+.role-access{padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;margin:12px 0}.role-access ul{margin:7px 0 0 20px;padding:0}.role-access li{margin:4px 0}

@@ -126,3 +126,16 @@ V1.0 JOB-IN NAMEPLATE DATA SHEET
 - Nameplate photo can be attached from the same section.
 - Saved nameplate data feeds the Motor Master Record so information does not need to be entered twice.
 - QR creation remains available directly in Receiving.
+
+
+V1.1 USERS / ACCESS PROTOTYPE
+- Added Users / Access section.
+- Prototype roles: Technician, Receiving, Driver, Manager, Supervisor, Office, Admin.
+- Each role displays typical permissions.
+- Users can be added, edited and disabled in the prototype.
+- Production authentication will not use this local prototype mechanism; production will use secure identity, password/SSO, MFA, sessions, role permissions and audit logs.
+
+HOSTING / DATABASE PLAN
+- Prototype: static GitHub Pages only; data is local/browser storage and is not suitable for real company data.
+- Production: web app + managed PostgreSQL database + private object storage for photos/documents + authentication + backups + monitoring.
+- We can build the production environment step-by-step without requiring the user to know coding or server administration.

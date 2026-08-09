@@ -33,7 +33,12 @@ function nav(view){
  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
  const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
- render();
+ db.users=db.users||[
+ {id:"U-1",name:"Prototype Admin",username:"admin",role:"Admin",active:true},
+ {id:"U-2",name:"Prototype Supervisor",username:"supervisor",role:"Supervisor",active:true},
+ {id:"U-3",name:"Prototype Technician",username:"tech1",role:"Technician",active:true}
+];
+render();
 const motorParam=new URLSearchParams(location.search).get('motor'); if(motorParam && db.jobs.some(j=>j.id===motorParam)){setTimeout(()=>editJob(motorParam),100);}
 }
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>nav(b.dataset.view));
@@ -173,6 +178,52 @@ function openNewMotorRecord(){
 
 function openJobFromDashboard(id){
   editJob(id);
+}
+
+
+const USER_ROLES={
+ "Technician":["View assigned jobs","Update repair workflow","Add photos","Enter test results"],
+ "Receiving":["Job motors in","Enter nameplate data","Create QR labels","Manage receiving"],
+ "Driver":["View assigned pickups/deliveries","Record pickup condition","Add delivery photos","Capture delivery signature"],
+ "Manager":["View all jobs","Quotes","Approvals","Reports","User management"],
+ "Supervisor":["All manager functions","Workflow overrides","QC approvals","User management"],
+ "Office":["Customers","Jobs","Quotes","Invoices","Scheduling"],
+ "Admin":["All system functions","Users/access","System settings"]
+};
+function renderUsers(){
+ const el=document.getElementById("userTable"); if(!el)return;
+ const users=db.users||[];
+ el.innerHTML=`<div class="row head"><div>Name</div><div>Role</div><div>Status</div><div>Access</div></div>`+
+ users.map(u=>`<div class="row"><div><strong>${esc(u.name)}</strong><div class="muted">${esc(u.username)}</div></div><div>${esc(u.role)}</div><div>${u.active!==false?"Active":"Disabled"}</div><div><button class="secondary" onclick="editUser('${u.id}')">Edit</button></div></div>`).join("")||empty("No users created.");
+}
+function openUserBuilder(existing=null){
+ const u=existing||{name:"",username:"",role:"Technician",active:true};
+ openModal(existing?"Edit User":"Add User",`
+  <div class="form-grid">
+   <div class="field"><label>Employee Name</label><input id="uname" value="${esc(u.name)}"></div>
+   <div class="field"><label>Username</label><input id="uusername" value="${esc(u.username)}"></div>
+   <div class="field"><label>Role</label><select id="urole">${Object.keys(USER_ROLES).map(r=>`<option ${u.role===r?"selected":""}>${r}</option>`).join("")}</select></div>
+   <div class="field"><label>Status</label><select id="uactive"><option value="1" ${u.active!==false?"selected":""}>Active</option><option value="0" ${u.active===false?"selected":""}>Disabled</option></select></div>
+  </div>
+  <div id="roleAccess" class="role-access"></div>
+  <div class="notice"><b>Prototype:</b> This demonstrates roles and permissions. Real authentication/passwords/2FA will be handled by the secure production database and identity system.</div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveUser('${existing?existing.id:""}')">Save User</button></div>
+ `,()=>{});
+ updateRoleAccess();
+ document.getElementById("urole").onchange=updateRoleAccess;
+}
+function updateRoleAccess(){
+ const r=document.getElementById("urole")?.value, a=document.getElementById("roleAccess");
+ if(a)a.innerHTML=`<b>Typical access for ${esc(r)}</b><ul>${(USER_ROLES[r]||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+}
+function editUser(id){openUserBuilder((db.users||[]).find(u=>u.id===id))}
+function saveUser(id){
+ db.users=db.users||[];
+ const u=id?db.users.find(x=>x.id===id):{id:"U-"+(db.users.length+1)};
+ if(!id)db.users.push(u);
+ u.name=document.getElementById("uname").value.trim();u.username=document.getElementById("uusername").value.trim();u.role=document.getElementById("urole").value;u.active=document.getElementById("uactive").value==="1";
+ if(!u.name||!u.username){alert("Enter a name and username.");return}
+ save();closeModal();render();
 }
 
 function renderCustomers(){
