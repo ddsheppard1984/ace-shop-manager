@@ -194,7 +194,7 @@ function renderInventory(){
 }
 function renderQuotes(){
  document.getElementById("quoteTable").innerHTML=`<div class="row head"><div>Quote</div><div>Customer</div><div>Amount</div><div>Status</div></div>`+
- db.quotes.map(q=>`<div class="row"><div><strong>${esc(q.id)}</strong><div class="muted">${esc(q.job)}</div></div><div>${esc(q.customer)}</div><div>${money(q.amount)}</div><div>${badge(q.status)}</div></div>`).join("")||empty();
+ db.quotes.map(q=>`<div class="row clickable" onclick="openQuoteBuilder('${q.id}')"><div><strong>${esc(q.id)}</strong><div class="muted">${esc(q.job)}</div></div><div>${esc(q.customer)}</div><div>${money(q.amount)}</div><div>${badge(q.status)}</div></div>`).join("")||empty();
 }
 function renderDeliveries(){
  document.getElementById("deliveryTable").innerHTML=`<div class="row head"><div>Type / Customer</div><div>Date</div><div>Driver</div><div>Status</div></div>`+
@@ -332,7 +332,7 @@ document.getElementById("quickAdd").onclick=()=>openNewJob();
 document.getElementById("addJob").onclick=openNewJob;
 document.getElementById("addCustomer").onclick=openNewCustomer;
 document.getElementById("addInventory").onclick=openNewInventory;
-document.getElementById("addQuote").onclick=openNewQuote;
+document.getElementById("addQuote").onclick=openQuoteBuilder;
 document.getElementById("addDelivery").onclick=openNewDelivery;
 function customerOptions(){return db.customers.map(c=>`<option>${esc(c.name)}</option>`).join("")}
 function openNewCustomer(){
@@ -357,9 +357,100 @@ function editInventory(part){
  const i=db.inventory.find(x=>x.part===part);if(!i)return;
  openModal("Edit "+part,`<div class="form-grid"><div class="field"><label>Part Number</label><input value="${esc(i.part)}" disabled></div><div class="field"><label>Description</label><input name="desc" value="${esc(i.desc)}"></div><div class="field"><label>Quantity</label><input name="qty" type="number" value="${i.qty}"></div><div class="field"><label>Minimum Stock</label><input name="min" type="number" value="${i.min}"></div><div class="field"><label>Unit Cost</label><input name="cost" type="number" step="0.01" value="${i.cost}"></div></div><div class="form-actions"><button class="primary">Save Changes</button></div>`,f=>Object.assign(i,{desc:f.get("desc"),qty:Number(f.get("qty")),min:Number(f.get("min")),cost:Number(f.get("cost"))}));
 }
-function openNewQuote(){
- openModal("New Quote",`<div class="form-grid"><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Job Number</label><input name="job"></div><div class="field"><label>Amount</label><input name="amount" type="number" step="0.01"></div><div class="field"><label>Status</label><select name="status"><option>Draft</option><option>Awaiting Approval</option><option>Approved</option><option>Declined</option></select></div></div><div class="form-actions"><button class="primary">Save Quote</button></div>`,f=>db.quotes.push({id:"Q-"+(db.quotes.length+2001),customer:f.get("customer"),job:f.get("job"),amount:Number(f.get("amount")),status:f.get("status")}));
+function quoteTotal(items){
+ return (items||[]).reduce((sum,i)=>sum+(Number(i.qty)||0)*(Number(i.unit)||0),0);
 }
+function quoteBuilderRows(items=[]){
+ return items.map((i,n)=>`<div class="quote-line" data-line="${n}">
+  <div><input class="qdesc" placeholder="Description" value="${esc(i.desc||"")}"></div>
+  <div><input class="qqty" type="number" min="0" step="0.01" value="${i.qty??1}"></div>
+  <div><input class="qunit" type="number" min="0" step="0.01" value="${i.unit??0}"></div>
+  <div class="qamount">${money((Number(i.qty)||0)*(Number(i.unit)||0))}</div>
+  <button type="button" class="danger-btn" onclick="removeQuoteLine(this)">×</button>
+ </div>`).join("");
+}
+function openQuoteBuilder(existingId=null){
+ const existing=existingId?db.quotes.find(q=>q.id===existingId):null;
+ const q=existing||{customer:db.customers[0]?.name||"",job:"",amount:0,status:"Draft",items:[{desc:"Motor inspection / evaluation",qty:1,unit:0}]};
+ openModal(existing?"Edit Quote "+existing.id:"Build New Quote",`
+  <div class="quote-head">
+   <div><b>${existing?esc(existing.id):"New Quote"}</b><div class="muted">Basic repair estimate builder</div></div>
+   ${badge(q.status)}
+  </div>
+  <div class="form-grid">
+   <div class="field"><label>Customer <span class="req">*</span></label><select id="qcustomer">${customerOptions()}</select></div>
+   <div class="field"><label>Job Number</label><input id="qjob" value="${esc(q.job||"")}"></div>
+   <div class="field"><label>Quote Date</label><input id="qdate" type="date" value="${esc(q.date||new Date().toISOString().slice(0,10))}"></div>
+   <div class="field"><label>Valid Through</label><input id="qvalid" type="date" value="${esc(q.validThrough||"")}"></div>
+   <div class="field"><label>Customer Contact</label><input id="qcontact" value="${esc(q.contact||"")}"></div>
+   <div class="field"><label>Prepared By</label><input id="qprepared" value="${esc(q.preparedBy||"")}"></div>
+  </div>
+  <div class="quote-section">
+   <div class="quote-section-head"><h3>Quote Items</h3><button type="button" class="secondary" onclick="addQuoteLine()">+ Add Line</button></div>
+   <div class="quote-line quote-line-head"><div>Description</div><div>Qty</div><div>Unit Price</div><div>Amount</div><div></div></div>
+   <div id="quoteLines">${quoteBuilderRows(q.items)}</div>
+   <div class="quote-total"><span>Estimated Total</span><strong id="quoteBuilderTotal">${money(quoteTotal(q.items))}</strong></div>
+  </div>
+  <div class="form-grid">
+   <div class="field"><label>Estimated Labor Hours</label><input id="qlaborhours" type="number" step="0.1" value="${q.laborHours||""}"></div>
+   <div class="field"><label>Labor Rate</label><input id="qlaborrate" type="number" step="0.01" value="${q.laborRate||""}"></div>
+   <div class="field"><label>Tax / Other</label><input id="qtax" type="number" step="0.01" value="${q.tax||""}"></div>
+   <div class="field"><label>Status</label><select id="qstatus"><option>Draft</option><option>Awaiting Approval</option><option>Approved</option><option>Declined</option><option>Sent to Customer</option></select></div>
+  </div>
+  <div class="field"><label>Scope of Work / Quote Notes</label><textarea id="qnotes" rows="4" placeholder="Example: Disassemble, clean, inspect, replace bearings, reassemble and test.">${esc(q.notes||"")}</textarea></div>
+  <div class="notice"><b>Prototype:</b> This builder creates a basic estimate. Later we can add AC Electric's actual labor rates, standard repair operations, bearing pricing, markup, taxes, discounts and quote PDF/email generation.</div>
+  <div class="form-actions"><button type="button" class="secondary" onclick="closeModal()">Cancel</button><button type="button" class="primary" onclick="saveQuoteBuilder('${existing?existing.id:""}')">Save Quote</button></div>
+ `,()=>{});
+ const cs=document.getElementById("qcustomer"); if(cs&&q.customer)cs.value=q.customer;
+ const st=document.getElementById("qstatus"); if(st)st.value=q.status||"Draft";
+ document.querySelectorAll(".qdesc,.qqty,.qunit").forEach(x=>x.addEventListener("input",updateQuoteBuilderTotal));
+}
+function addQuoteLine(){
+ const container=document.getElementById("quoteLines"); if(!container)return;
+ const div=document.createElement("div");div.className="quote-line";
+ div.innerHTML=`<div><input class="qdesc" placeholder="Description"></div><div><input class="qqty" type="number" min="0" step="0.01" value="1"></div><div><input class="qunit" type="number" min="0" step="0.01" value="0"></div><div class="qamount">$0.00</div><button type="button" class="danger-btn" onclick="removeQuoteLine(this)">×</button>`;
+ container.appendChild(div);
+ div.querySelectorAll("input").forEach(x=>x.addEventListener("input",updateQuoteBuilderTotal));
+ updateQuoteBuilderTotal();
+}
+function removeQuoteLine(btn){btn.closest(".quote-line")?.remove();updateQuoteBuilderTotal()}
+function getQuoteBuilderItems(){
+ return [...document.querySelectorAll("#quoteLines .quote-line:not(.quote-line-head)")].map(r=>({
+  desc:r.querySelector(".qdesc")?.value||"",
+  qty:Number(r.querySelector(".qqty")?.value||0),
+  unit:Number(r.querySelector(".qunit")?.value||0)
+ })).filter(i=>i.desc||i.qty||i.unit);
+}
+function updateQuoteBuilderTotal(){
+ const items=getQuoteBuilderItems();let subtotal=quoteTotal(items);
+ const labor=(Number(document.getElementById("qlaborhours")?.value||0)*Number(document.getElementById("qlaborrate")?.value||0));
+ const tax=Number(document.getElementById("qtax")?.value||0);
+ document.querySelectorAll(".quote-line:not(.quote-line-head)").forEach(r=>{
+  const qty=Number(r.querySelector(".qqty")?.value||0),unit=Number(r.querySelector(".qunit")?.value||0);
+  const a=r.querySelector(".qamount");if(a)a.textContent=money(qty*unit);
+ });
+ const total=subtotal+labor+tax;
+ const t=document.getElementById("quoteBuilderTotal");if(t)t.textContent=money(total);
+ return total;
+}
+function saveQuoteBuilder(id){
+ const customer=document.getElementById("qcustomer").value;
+ const items=getQuoteBuilderItems();
+ if(!customer){alert("Select a customer.");return}
+ if(!items.length){alert("Add at least one quote line.");return}
+ const laborHours=Number(document.getElementById("qlaborhours").value||0),laborRate=Number(document.getElementById("qlaborrate").value||0),tax=Number(document.getElementById("qtax").value||0);
+ const subtotal=quoteTotal(items),labor=laborHours*laborRate,total=subtotal+labor+tax;
+ let q=id?db.quotes.find(x=>x.id===id):null;
+ if(!q){q={id:"Q-"+(db.quotes.length+2001)};db.quotes.push(q)}
+ Object.assign(q,{
+  customer,job:document.getElementById("qjob").value,date:document.getElementById("qdate").value,
+  validThrough:document.getElementById("qvalid").value,contact:document.getElementById("qcontact").value,
+  preparedBy:document.getElementById("qprepared").value,items,subtotal,laborHours,laborRate,labor,tax,
+  amount:total,status:document.getElementById("qstatus").value,notes:document.getElementById("qnotes").value
+ });
+ save();closeModal();render();
+}
+
 function openNewDelivery(){
  openModal("Schedule Pickup / Delivery",`<div class="form-grid"><div class="field"><label>Type</label><select name="type"><option>Pickup</option><option>Delivery</option></select></div><div class="field"><label>Customer</label><select name="customer">${customerOptions()}</select></div><div class="field"><label>Date</label><input name="date" type="date" required></div><div class="field"><label>Driver</label><select name="driver"><option>Unassigned</option><option>Driver 1</option><option>Driver 2</option><option>Driver 3</option><option>Driver 4</option></select></div></div><div class="form-actions"><button class="primary">Schedule</button></div>`,f=>db.deliveries.push({id:"D-"+(db.deliveries.length+3001),type:f.get("type"),customer:f.get("customer"),date:f.get("date"),driver:f.get("driver"),status:"Scheduled",jobs:[],condition:"",notes:"",photos:[],signature:null}));
 }

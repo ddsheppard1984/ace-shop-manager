@@ -86,3 +86,15 @@ V0.6 DASHBOARD JOB NAVIGATION
 - Dashboard job entries open the selected job directly when clicked.
 - Jobs / Motors remains available for full job searching and management.
 - Clickable dashboard rows have hover styling.
+
+
+V0.7 QUOTE BUILDER
+- Quotes page now has a basic quote builder.
+- Customer, job number, dates, contact, preparer and status.
+- Line items with description, quantity, unit price and calculated amount.
+- Labor hours and labor rate.
+- Tax/other amount.
+- Scope-of-work notes.
+- Automatic quote total calculation.
+- Existing quotes can be clicked to edit.
+- Designed as a prototype foundation for later AC Electric-specific labor operations, parts/markup rules, approvals, PDF generation and customer delivery.
