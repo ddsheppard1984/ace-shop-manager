@@ -106,3 +106,14 @@ V0.8 JOB-LINKED QUOTING
 - Customer contact and basic motor description are prefilled from the job where available.
 - If a quote already exists for that job, Build Quote opens the existing quote for editing instead of creating a duplicate.
 - Quote builder displays the linked job/motor information.
+
+
+V0.9 QUOTE APPROVAL + MOTOR QR
+- Quotes can be sent/requested by Email, Text Message, or Manual/Phone Approval method.
+- Prototype records send method, destination, timestamp and approval notes.
+- Quotes can record Approved, Changes Requested, or Declined status and approver/note.
+- Job editor has Build Quote and QR Code actions.
+- Receiving stage has Create / Print QR option.
+- QR identifies the job/motor and can open the job record in the prototype.
+- QR generation currently uses a public QR image service for prototype convenience; production should generate/store QR codes without exposing sensitive data and use authenticated links.
+- Email/SMS sending is intentionally not connected yet; production will use a transactional email/SMS provider with secure customer data handling.

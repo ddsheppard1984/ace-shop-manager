@@ -34,3 +34,5 @@
 @media(max-width:650px){.quote-line{grid-template-columns:1fr 65px 95px 95px 30px}.quote-line-head{display:none}}
 
 .linked-job{padding:10px 12px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:9px;margin:10px 0;font-size:13px}.linked-job div{color:#475569;margin-top:3px}
+
+.qr-card{text-align:center;padding:12px}.qr-card img{width:220px;height:220px;image-rendering:auto;border:1px solid #e2e8f0;padding:8px;background:#fff}.quote-send-card{padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;margin-bottom:12px}

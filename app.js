@@ -34,6 +34,7 @@ function nav(view){
  const names={dashboard:["Dashboard","AC Electric Corp. shop overview"],customers:["Customers","Customer accounts and contacts"],jobs:["Jobs / Motors","Work orders and repair workflow"],"motor-records":["Motor Master Records","Permanent equipment history and chain of custody"],inventory:["Inventory","Parts, bearings and shop supplies"],quotes:["Quotes","Repair estimates and approvals"],deliveries:["Pickups / Deliveries","Schedule and track transportation"]};
  document.getElementById("pageTitle").textContent=names[view][0]; document.getElementById("pageSub").textContent=names[view][1];
  render();
+const motorParam=new URLSearchParams(location.search).get('motor'); if(motorParam && db.jobs.some(j=>j.id===motorParam)){setTimeout(()=>editJob(motorParam),100);}
 }
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>nav(b.dataset.view));
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>nav(b.dataset.go));
@@ -341,6 +342,48 @@ function openQuoteFromJob(jobId){
  });
 }
 
+
+function motorQrUrl(j){
+ const payload=location.origin+location.pathname+"?motor="+encodeURIComponent(j.id);
+ return "https://quickchart.io/qr?text="+encodeURIComponent(payload)+"&size=220";
+}
+function showMotorQr(id){
+ const j=db.jobs.find(x=>x.id===id);if(!j)return;
+ openModal("QR Code — "+j.id,`
+  <div class="qr-card">
+   <img src="${motorQrUrl(j)}" alt="QR code for ${esc(j.id)}">
+   <h3>${esc(j.id)}</h3><div>${esc(j.customer)} · ${esc(j.type)}</div>
+   <div class="muted">Scan this code to identify the motor/job. Production version will use authenticated QR links.</div>
+   <button type="button" class="primary" onclick="window.print()">🖨️ Print QR Label</button>
+  </div>`,()=>{});
+}
+function quoteSend(id){
+ const q=db.quotes.find(x=>x.id===id);if(!q)return;
+ openModal("Send Quote "+q.id,`
+  <div class="quote-send-card"><b>${esc(q.id)}</b><div>${esc(q.customer)} · ${money(q.amount||0)}</div></div>
+  <div class="field"><label>Send / Approval Method</label><select id="quoteMethod">
+   <option value="Email">Email to Customer</option><option value="Text">Text Message</option><option value="Manual">Manual / Phone Approval</option>
+  </select></div>
+  <div class="field"><label>Email or Mobile (if applicable)</label><input id="quoteDestination" value="${esc(q.destination||"")}"></div>
+  <div class="field"><label>Approval Notes</label><textarea id="quoteApprovalNotes" rows="3">${esc(q.approvalNotes||"")}</textarea></div>
+  <div class="notice">Prototype mode records the method and approval information. It does not actually send email/text messages yet.</div>
+  <div class="form-actions"><button type="button" class="secondary" onclick="closeModal()">Cancel</button><button type="button" class="primary" onclick="saveQuoteSend('${q.id}')">Save / Record Method</button></div>
+ `,()=>{});
+}
+function saveQuoteSend(id){
+ const q=db.quotes.find(x=>x.id===id);
+ q.sendMethod=document.getElementById("quoteMethod").value;q.destination=document.getElementById("quoteDestination").value;q.approvalNotes=document.getElementById("quoteApprovalNotes").value;
+ q.sentAt=new Date().toISOString();q.status=q.sendMethod==="Manual"?"Awaiting Approval":"Sent to Customer";
+ save();closeModal();render();
+}
+function recordQuoteApproval(id,result){
+ const q=db.quotes.find(x=>x.id===id);if(!q)return;
+ const name=prompt(result==="Approved"?"Approved by (customer name):":"Reason / customer note:");
+ if(result==="Approved"&&!name)return;
+ q.approvalStatus=result;q.approvedBy=result==="Approved"?name:"";q.approvalAt=new Date().toISOString();q.status=result==="Approved"?"Approved":result==="Declined"?"Declined":"Changes Requested";
+ save();render();
+}
+
 function openModal(title,html,onSubmit){
  document.getElementById("modalTitle").textContent=title;document.getElementById("modalForm").innerHTML=html;document.getElementById("modal").classList.remove("hidden");
  document.getElementById("modalForm").onsubmit=e=>{e.preventDefault();onSubmit(new FormData(e.target));closeModal();save();render()};
@@ -420,7 +463,14 @@ function openQuoteBuilder(existingId=null,prefill=null){
   </div>
   <div class="field"><label>Scope of Work / Quote Notes</label><textarea id="qnotes" rows="4" placeholder="Example: Disassemble, clean, inspect, replace bearings, reassemble and test.">${esc(q.notes||"")}</textarea></div>
   <div class="notice"><b>Prototype:</b> This builder creates a basic estimate. Later we can add AC Electric's actual labor rates, standard repair operations, bearing pricing, markup, taxes, discounts and quote PDF/email generation.</div>
-  <div class="form-actions"><button type="button" class="secondary" onclick="closeModal()">Cancel</button><button type="button" class="primary" onclick="saveQuoteBuilder('${existing?existing.id:""}')">Save Quote</button></div>
+  <div class="form-actions">
+   <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+   ${existing?`<button type="button" class="secondary" onclick="quoteSend('${existing.id}')">📤 Send / Request Approval</button>
+   <button type="button" class="secondary" onclick="recordQuoteApproval('${existing.id}','Approved')">✅ Record Approval</button>
+   <button type="button" class="secondary" onclick="recordQuoteApproval('${existing.id}','Changes Requested')">✏️ Changes Requested</button>
+   <button type="button" class="secondary" onclick="recordQuoteApproval('${existing.id}','Declined')">❌ Declined</button>`:""}
+   <button type="button" class="primary" onclick="saveQuoteBuilder('${existing?existing.id:""}')">Save Quote</button>
+  </div>
  `,()=>{});
  const cs=document.getElementById("qcustomer"); if(cs&&q.customer)cs.value=q.customer;
  const st=document.getElementById("qstatus"); if(st)st.value=q.status||"Draft";
@@ -511,7 +561,7 @@ function workflowHtml(j){
  return WORKFLOW.map((w,i)=>{let done=(j.completed||{})[w[0]],active=j.stage===w[0];
  return `<div class="stage ${done?"done":""} ${active?"active":""}"><div class="stage-top"><div><b>${i+1}. ${w[1]}</b><div class="muted">${done?"Completed":active?"Current step":"Locked"}</div></div><span class="stage-dot">${done?"✓":i+1}</span></div>
  ${active?`<div class="checklist">${w[2].map((x,k)=>`<label><input class="wfcheck" data-key="${w[0]}" data-i="${k}" type="checkbox" ${((j.checks||{})[w[0]]||[])[k]?"checked":""}>${x}</label>`).join("")}</div>
- <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button><button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
+ <div class="stage-actions"><button type="button" class="secondary" onclick="addJobPhoto('${j.id}','${w[0]}')">📷 Add / Take Photos</button>${w[0]==="Receiving"?`<button type="button" class="secondary" onclick="showMotorQr('${j.id}')">▣ Create / Print QR</button>`:""}<button type="button" class="primary" onclick="completeStage('${j.id}','${w[0]}')">Complete Step</button></div>`:""}</div>`}).join("")
 }
 function editJob(id){
  let j=db.jobs.find(x=>x.id===id);if(!j)return;
@@ -525,6 +575,7 @@ function editJob(id){
  <div><b>Motor / Job Photos</b><div class="photos">${photos}</div></div>
  <div class="form-actions">
   <button type="button" class="secondary" onclick="openQuoteFromJob('${j.id}')">💰 Build Quote</button>
+  <button type="button" class="secondary" onclick="showMotorQr('${j.id}')">▣ QR Code</button>
   <button type="button" class="primary" onclick="saveJobNotes('${j.id}')">Save Job</button>
 </div>`,()=>{});
  document.querySelectorAll(".wfcheck").forEach(c=>c.onchange=()=>{j.checks=j.checks||{};j.checks[c.dataset.key]=j.checks[c.dataset.key]||[];j.checks[c.dataset.key][+c.dataset.i]=c.checked;save()})
