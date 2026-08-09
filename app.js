@@ -625,7 +625,14 @@ function openInvoiceBuilder(){
    <div class="field"><label>Customer <span class="req">*</span></label><select id="inv_customer">${customerOptions()}</select></div>
    <div class="field"><label>Invoice Date</label><input id="inv_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
    <div class="field"><label>Due Date</label><input id="inv_due" type="date"></div>
-   <div class="field"><label>Job / Motor #</label><input id="inv_job" placeholder="Optional"></div>
+   <div class="field"><label>Job / Motor # <span class="req">*</span></label>
+    <select id="inv_job_select" onchange="invoiceJobChanged()">
+      <option value="">Select current job...</option>
+      ${(db.jobs||[]).filter(j=>j.stage!=="Completed").map(j=>`<option value="${esc(j.id)}">${esc(j.id)} — ${esc(j.customer||"No customer")} — ${esc(j.type||"Motor/Job")} ${j.stage?`(${esc(j.stage)})`:""}</option>`).join("")}
+      <option value="__NEW__">＋ Add New Job Number</option>
+    </select>
+    <div id="newJobNumberBox" style="display:none;margin-top:7px"><input id="inv_new_job" placeholder="Example: J-1045"></div>
+   </div>
    <div class="field"><label>Description</label><input id="inv_desc" placeholder="Motor repair, parts, service, etc."></div>
    <div class="field"><label>Quantity</label><input id="inv_qty" type="number" min="1" value="1"></div>
    <div class="field"><label>Unit Price</label><input id="inv_price" type="number" min="0" step="0.01" value="0"></div>
@@ -642,11 +649,31 @@ function updateInvoiceTotal(){
  const subtotal=q*p,total=subtotal+(subtotal*t/100),el=document.getElementById("invoice_total_preview");
  if(el)el.innerHTML=`Subtotal: ${money(subtotal)} · Tax: ${money(subtotal*t/100)} · <b>Total: ${money(total)}</b>`;
 }
+function invoiceJobChanged(){
+ const sel=document.getElementById("inv_job_select"),box=document.getElementById("newJobNumberBox");
+ if(!sel)return;
+ if(box)box.style.display=sel.value==="__NEW__"?"block":"none";
+}
+function getInvoiceJobNumber(){
+ const sel=document.getElementById("inv_job_select");if(!sel)return "";
+ if(sel.value!=="__NEW__")return sel.value;
+ return (document.getElementById("inv_new_job")?.value||"").trim();
+}
+function addNewJobForInvoice(jobId,customer){
+ db.jobs=db.jobs||[];
+ if(db.jobs.some(j=>String(j.id).toLowerCase()===String(jobId).toLowerCase()))return false;
+ db.jobs.push({id:jobId,customer:customer||"",type:"",hp:"",voltage:"",serial:"",stage:"Jobbed In",priority:"Normal",notes:"",createdAt:new Date().toISOString()});
+ return true;
+}
 function saveInvoice(){
- const customer=document.getElementById("inv_customer").value,date=document.getElementById("inv_date").value,due=document.getElementById("inv_due").value,job=document.getElementById("inv_job").value.trim(),desc=document.getElementById("inv_desc").value.trim(),qty=Number(document.getElementById("inv_qty").value||0),price=Number(document.getElementById("inv_price").value||0),tax=Number(document.getElementById("inv_tax").value||0);
- if(!customer||!desc||qty<=0||price<0){alert("Select a customer and enter a description, quantity and valid price.");return}
+ const customer=document.getElementById("inv_customer").value,date=document.getElementById("inv_date").value,due=document.getElementById("inv_due").value,job=getInvoiceJobNumber(),desc=document.getElementById("inv_desc").value.trim(),qty=Number(document.getElementById("inv_qty").value||0),price=Number(document.getElementById("inv_price").value||0),tax=Number(document.getElementById("inv_tax").value||0);
+ if(!customer||!job||!desc||qty<=0||price<0){alert("Select a customer, select an existing job or add a new job number, and enter a description and valid price.");return}
+ if(document.getElementById("inv_job_select").value==="__NEW__"){
+   if(!/^[A-Za-z0-9][A-Za-z0-9._-]{1,30}$/.test(job)){alert("Enter a valid new job number (letters, numbers, hyphen, dot or underscore).");return}
+   if(!addNewJobForInvoice(job,customer)){alert("That job number already exists. Please select it from the list.");return}
+ }
  const subtotal=qty*price,total=subtotal+(subtotal*tax/100);
- db.invoices.push({id:"I-"+(db.invoices.length+1),number:nextNumber("INV",db.invoices),customer,date,dueDate:due,jobId:job,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:0,status:"Open",createdAt:new Date().toISOString()});
+ db.invoices.push({id:"I-"+(db.invoices.length+1),number:nextNumber("INV",db.invoices),customer,date,dueDate:due,jobId:job,jobNumber:job,items:[{description:desc,qty,unitPrice:price}],subtotal,tax,total,paid:0,status:"Open",createdAt:new Date().toISOString()});
  logAudit("Created invoice");save();closeModal();render();
 }
 

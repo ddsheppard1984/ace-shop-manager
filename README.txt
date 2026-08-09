@@ -251,3 +251,12 @@ V2.4 POS / INVOICING
 - Invoices support customer, date, due date, optional job/motor number, description, quantity, unit price and tax.
 - Dashboard shows POS sales, invoice totals, payments and outstanding balance.
 - Production version should add line-item inventory selection, payment processing integration, invoice PDF/email, numbering controls, refunds/voids, customer statements, accounting integration and strict permissions.
+
+
+V2.5 INVOICE JOB NUMBER LINKING
+- Invoice job/motor number is now a required dropdown.
+- Dropdown lists active/current jobs already tracked by the system, including job number, customer, type and workflow stage.
+- Added "Add New Job Number" option directly in the invoice form.
+- New job numbers are created in the Jobs / Motors master list and linked to the invoice.
+- Completed jobs are excluded from the current-job dropdown to keep the list useful.
+- Invoice stores both jobId and jobNumber for future production database relationships.
