@@ -351,3 +351,20 @@ V3.5 ENGINEERING EQUIPMENT TYPE
 - Added Engineering Field Service as a selectable equipment/job type in the central job workflow where equipment types are selected.
 - Engineering work can now be identified alongside Motor, Generator and other job types.
 - Engineering-specific jobs continue to use their automatic E-#### number and link to Engineering Field Service, testing, time and billing.
+
+
+V4.0 FULL OPERATIONS PLATFORM PROTOTYPE
+- Added management Command Center metrics and action items.
+- Added Scheduling / Dispatch for shop, engineering and transportation work.
+- Added Procedures / SOP library with department, version, status and required steps.
+- Added Preventive Maintenance scheduling and due/overdue tracking.
+- Added Employee Certifications / Training expiration tracking.
+- Added Management Reports with operations, labor, engineering, A/R and inventory metrics.
+- Added Accounting / Integrations area with structured universal export and planned profiles for QuickBooks Online, Xero, Sage and generic CSV.
+- Added Alerts / Action Center for low inventory, overdue invoices, expiring certifications and waiting-on-parts jobs.
+- Added Shop Assistant prototype with natural-language-style questions answered from local data.
+- Added universal normalized JSON export covering customers, jobs, engineering, motors, quotes, invoices, payments, inventory, labor, employees, certifications, accounting, maintenance and testing.
+- Added architecture hooks for future AI OCR/nameplate recognition, mobile/PWA workflows, attachments, electronic signatures, payment processing and external APIs.
+
+IMPORTANT PRODUCTION NOTE:
+This remains a prototype using browser local storage. A production deployment should use a real authenticated cloud database, encrypted object storage, role-based server permissions, MFA, audit logs, backups, locked accounting periods, secure API integrations, proper accounting controls and legal/security review. The prototype's "Shop Assistant" is rule-based and does not call an external AI service.

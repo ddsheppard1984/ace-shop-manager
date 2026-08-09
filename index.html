@@ -31,6 +31,14 @@
       <button class="nav" data-view="labor">⏱️ Technician Time</button>
       <button class="nav" data-view="timeslips">🕒 Time Slips</button>
       <button class="nav" data-view="engineering">⚡ Engineering Field Service</button>
+      <button class="nav" data-view="schedule">📅 Scheduling / Dispatch</button>
+      <button class="nav" data-view="procedures">📚 Procedures / SOPs</button>
+      <button class="nav" data-view="maintenance">🔧 Preventive Maintenance</button>
+      <button class="nav" data-view="certifications">🎓 Certifications / Training</button>
+      <button class="nav" data-view="reports">📈 Management Reports</button>
+      <button class="nav" data-view="integrations">🔗 Accounting / Integrations</button>
+      <button class="nav" data-view="alerts">🔔 Alerts / Action Center</button>
+      <button class="nav" data-view="ai">🤖 Shop Assistant</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
@@ -63,6 +71,7 @@
           <div id="dashboardInventory"></div>
         </div>
       </div>
+      <div class="panel command-panel"><div class="panel-head"><h2>🚦 Command Center</h2><button class="linkbtn" data-go="alerts">Action Center</button></div><div id="dashboardCommand"></div></div>
     </section>
 
     <section id="customers" class="view">
@@ -88,6 +97,48 @@
       <div class="panel">
         <div class="panel-head"><h2>Users & Access Levels</h2><span class="muted">Prototype role-based permissions</span></div>
         <div id="userTable"></div>
+      </div>
+    </section>
+
+
+    <section id="schedule" class="view">
+      <div class="toolbar"><button class="primary" id="newSchedule">+ Schedule Work</button></div>
+      <div class="panel"><div class="panel-head"><h2>📅 Scheduling / Dispatch</h2><span class="muted">Shop, engineering, drivers and field work</span></div><div id="scheduleBoard"></div></div>
+    </section>
+
+    <section id="procedures" class="view">
+      <div class="toolbar"><button class="primary" id="newProcedure">+ Procedure / SOP</button></div>
+      <div class="panel"><div class="panel-head"><h2>📚 Procedures / SOP Library</h2><span class="muted">Company-controlled workflows and required steps</span></div><div id="procedureTable"></div></div>
+    </section>
+
+    <section id="maintenance" class="view">
+      <div class="toolbar"><button class="primary" id="newMaintenance">+ Preventive Maintenance</button></div>
+      <div class="panel"><div class="panel-head"><h2>🔧 Preventive Maintenance</h2><span class="muted">Track recurring service and due dates</span></div><div id="maintenanceTable"></div></div>
+    </section>
+
+    <section id="certifications" class="view">
+      <div class="toolbar"><button class="primary" id="newCertification">+ Employee Certification</button></div>
+      <div class="panel"><div class="panel-head"><h2>🎓 Certifications / Training</h2><span class="muted">Employee qualifications and expiration alerts</span></div><div id="certTable"></div></div>
+    </section>
+
+    <section id="reports" class="view">
+      <div class="toolbar"><select id="reportPeriod"><option>This Month</option><option>This Quarter</option><option>This Year</option><option>All Time</option></select><button class="secondary" id="exportReport">⬇ Export Report</button></div>
+      <div class="panel"><div class="panel-head"><h2>📈 Management Command Center</h2><span class="muted">Operations, labor, profitability, billing and engineering</span></div><div id="managementReport"></div></div>
+    </section>
+
+    <section id="integrations" class="view">
+      <div class="toolbar"><button class="primary" id="exportUniversal">⬇ Universal Accounting Export</button></div>
+      <div class="panel"><div class="panel-head"><h2>🔗 Accounting / Integrations</h2><span class="muted">Structured exports and mapping profiles</span></div><div id="integrationPanel"></div></div>
+    </section>
+
+    <section id="alerts" class="view">
+      <div class="panel"><div class="panel-head"><h2>🔔 Alerts / Action Center</h2><span class="muted">Items that need attention</span></div><div id="alertPanel"></div></div>
+    </section>
+
+    <section id="ai" class="view">
+      <div class="panel"><div class="panel-head"><h2>🤖 AC Electric Shop Assistant</h2><span class="muted">Prototype decision assistant using your local shop data</span></div>
+        <div class="assistant-box"><textarea id="assistantQuestion" rows="3" placeholder="Try: Which jobs are waiting on parts?  Which invoices are overdue?  How many engineering hours are billable?"></textarea><button class="primary" id="askAssistant">Ask</button></div>
+        <div id="assistantAnswer" class="assistant-answer"></div>
       </div>
     </section>
 

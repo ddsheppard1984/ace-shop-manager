@@ -44,6 +44,139 @@ const motorParam=new URLSearchParams(location.search).get('motor'); if(motorPara
 }
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>nav(b.dataset.view));
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>nav(b.dataset.go));
+
+function ensureV4Data(){
+ db.schedules=db.schedules||[];
+ db.procedures=db.procedures||[
+  {id:"SOP-001",name:"Motor Job-In",department:"Motor Repair",version:"1.0",status:"Active",steps:["Verify customer/job","Photograph nameplate","Record condition","Create motor master record"]},
+  {id:"SOP-002",name:"Motor Inspection",department:"Motor Repair",version:"1.0",status:"Active",steps:["Electrical inspection","Mechanical inspection","Document findings","Supervisor review"]},
+  {id:"SOP-003",name:"Breaker Certification",department:"Engineering",version:"1.0",status:"Draft",steps:["Visual inspection","Electrical tests","Mechanical tests","Record results","Engineer approval"]}
+ ];
+ db.maintenance=db.maintenance||[];
+ db.employeeCerts=db.employeeCerts||[];
+ db.attachments=db.attachments||[];
+ db.alerts=db.alerts||[];
+ db.integrationProfiles=db.integrationProfiles||[
+  {name:"QuickBooks Online",format:"CSV / API mapping",status:"Planned"},
+  {name:"Xero",format:"CSV / API mapping",status:"Planned"},
+  {name:"Sage",format:"CSV mapping",status:"Planned"},
+  {name:"Generic Accounting CSV",format:"CSV",status:"Ready"},
+  {name:"Universal JSON",format:"JSON",status:"Ready"}
+ ];
+}
+function allLaborHours(){
+ return ((db.timeSlips||[]).reduce((a,x)=>a+Number(x.minutes||0),0)+(db.laborSessions||[]).reduce((a,x)=>a+Number(x.minutes||0),0))/60;
+}
+function allBillableHours(){
+ return (db.timeSlips||[]).filter(x=>x.billable).reduce((a,x)=>a+Number(x.minutes||0),0)/60;
+}
+function makeAlerts(){
+ ensureV4Data();
+ const a=[];
+ const low=(db.inventory||[]).filter(x=>Number(x.qty)<=Number(x.min)).length;
+ if(low)a.push({level:"warning",text:`${low} inventory item${low===1?"":"s"} below minimum.`});
+ const overdue=(db.invoices||[]).filter(x=>typeof invoiceStatus==="function"&&invoiceStatus(x)==="Overdue");
+ if(overdue.length)a.push({level:"danger",text:`${overdue.length} invoice${overdue.length===1?"":"s"} are overdue.`});
+ const today=new Date(); today.setHours(0,0,0,0);
+ (db.employeeCerts||[]).forEach(c=>{const d=new Date(c.expires+"T00:00:00"),days=Math.ceil((d-today)/86400000);if(days<=30)a.push({level:days<0?"danger":"warning",text:`${c.employee}'s ${c.certification} ${days<0?"expired":`expires in ${days} days`}.`})});
+ (db.jobs||[]).filter(j=>j.stage==="Waiting on Parts").forEach(j=>a.push({level:"info",text:`${j.id} is waiting on parts.`}));
+ return a;
+}
+function renderCommandCenter(){
+ ensureV4Data();
+ const alerts=makeAlerts(),active=(db.jobs||[]).filter(j=>j.stage!=="Completed").length;
+ const eng=(db.engineeringJobs||[]).filter(j=>j.status!=="Completed").length;
+ const ar=(db.invoices||[]).filter(i=>typeof invoiceBalance==="function"&&invoiceBalance(i)>0.009).reduce((a,i)=>a+invoiceBalance(i),0);
+ document.getElementById("dashboardCommand").innerHTML=`<div class="command-grid">
+  <div><b>${active}</b><span>Active Shop Jobs</span></div><div><b>${eng}</b><span>Engineering Jobs</span></div><div><b>${allLaborHours().toFixed(1)}</b><span>Tracked Hours</span></div><div><b>${allBillableHours().toFixed(1)}</b><span>Billable Hours</span></div><div><b>${money(ar)}</b><span>Open A/R</span></div><div><b>${alerts.length}</b><span>Action Items</span></div>
+ </div>`;
+}
+function renderSchedule(){
+ ensureV4Data();const el=document.getElementById("scheduleBoard");if(!el)return;
+ const days=[0,1,2,3,4,5,6].map(n=>{const d=new Date();d.setDate(d.getDate()-d.getDay()+n);return d.toISOString().slice(0,10)});
+ el.innerHTML=`<div class="schedule-grid">${days.map(d=>`<div class="schedule-day"><b>${new Date(d+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</b>${db.schedules.filter(x=>x.date===d).map(x=>`<div class="schedule-item"><strong>${esc(x.job)}</strong><span>${esc(x.employee||"Unassigned")}</span><small>${esc(x.type||"Work")} ${x.start?`· ${esc(x.start)}`:""}</small></div>`).join("")||'<div class="muted">No work scheduled</div>'}</div>`).join("")}</div>`;
+}
+function openScheduleBuilder(){
+ ensureV4Data();
+ const today=new Date().toISOString().slice(0,10);
+ openModal("Schedule Work",`<div class="form-grid">
+ <div class="field"><label>Job / E-Job</label><select id="sch_job">${(db.jobs||[]).map(j=>`<option>${esc(j.id)}</option>`).join("")}</select></div>
+ <div class="field"><label>Employee / Crew</label><input id="sch_employee"></div>
+ <div class="field"><label>Date</label><input id="sch_date" type="date" value="${today}"></div>
+ <div class="field"><label>Start</label><input id="sch_start" type="time"></div>
+ <div class="field"><label>Type</label><select id="sch_type"><option>Shop Work</option><option>Engineering Field Service</option><option>Pickup</option><option>Delivery</option><option>Inspection</option><option>Testing</option></select></div>
+ <div class="field"><label>Notes</label><input id="sch_notes"></div></div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveSchedule()">Schedule</button></div>`,()=>{});
+}
+function saveSchedule(){
+ ensureV4Data();const job=document.getElementById("sch_job").value,employee=document.getElementById("sch_employee").value.trim(),date=document.getElementById("sch_date").value,start=document.getElementById("sch_start").value,type=document.getElementById("sch_type").value,notes=document.getElementById("sch_notes").value.trim();
+ if(!job||!date){alert("Job and date are required.");return} db.schedules.push({id:"SCH-"+(db.schedules.length+1),job,employee,date,start,type,notes});save();closeModal();render();
+}
+function renderProcedures(){
+ ensureV4Data();const el=document.getElementById("procedureTable");if(!el)return;
+ el.innerHTML=`<div class="row head proc-grid"><div>Procedure</div><div>Department</div><div>Version</div><div>Status</div><div>Steps</div></div>`+db.procedures.map(p=>`<div class="row proc-grid"><div><b>${esc(p.name)}</b></div><div>${esc(p.department)}</div><div>${esc(p.version)}</div><div>${esc(p.status)}</div><div>${p.steps.length} required steps</div></div>`).join("");
+}
+function openProcedureBuilder(){
+ ensureV4Data();openModal("New Procedure / SOP",`<div class="form-grid">
+ <div class="field"><label>Name</label><input id="p_name"></div><div class="field"><label>Department</label><input id="p_dept"></div>
+ <div class="field"><label>Version</label><input id="p_ver" value="1.0"></div><div class="field"><label>Steps</label><input id="p_steps" placeholder="Separate steps with commas"></div></div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveProcedure()">Save</button></div>`,()=>{});
+}
+function saveProcedure(){
+ ensureV4Data();const name=document.getElementById("p_name").value.trim(),department=document.getElementById("p_dept").value.trim(),version=document.getElementById("p_ver").value.trim(),steps=document.getElementById("p_steps").value.split(",").map(x=>x.trim()).filter(Boolean);if(!name||!steps.length){alert("Name and at least one step are required.");return}db.procedures.push({id:"SOP-"+(db.procedures.length+1),name,department,version,status:"Active",steps});save();closeModal();render();
+}
+function renderMaintenance(){
+ ensureV4Data();const el=document.getElementById("maintenanceTable");if(!el)return;
+ el.innerHTML=`<div class="row head maint-grid"><div>Equipment</div><div>Customer</div><div>Service</div><div>Next Due</div><div>Status</div></div>`+db.maintenance.map(m=>{const days=Math.ceil((new Date(m.due+"T00:00:00")-new Date())/86400000);return `<div class="row maint-grid"><div><b>${esc(m.equipment)}</b></div><div>${esc(m.customer)}</div><div>${esc(m.service)}</div><div>${esc(m.due)}</div><div>${days<0?"OVERDUE":days<=30?"Due Soon":"Scheduled"}</div></div>`}).join("")||empty("No preventive maintenance schedules.");
+}
+function openMaintenanceBuilder(){
+ ensureV4Data();openModal("Preventive Maintenance",`<div class="form-grid"><div class="field"><label>Equipment</label><input id="pm_equipment"></div><div class="field"><label>Customer</label><select id="pm_customer">${customerOptions()}</select></div><div class="field"><label>Service</label><input id="pm_service" placeholder="Annual inspection"></div><div class="field"><label>Next Due</label><input id="pm_due" type="date"></div></div><div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveMaintenance()">Save</button></div>`,()=>{});
+}
+function saveMaintenance(){ensureV4Data();const equipment=document.getElementById("pm_equipment").value.trim(),customer=document.getElementById("pm_customer").value,service=document.getElementById("pm_service").value.trim(),due=document.getElementById("pm_due").value;if(!equipment||!due){alert("Equipment and due date required.");return}db.maintenance.push({id:"PM-"+(db.maintenance.length+1),equipment,customer,service,due});save();closeModal();render();}
+function renderCertifications(){
+ ensureV4Data();const el=document.getElementById("certTable");if(!el)return;
+ el.innerHTML=`<div class="row head cert-grid"><div>Employee</div><div>Certification</div><div>Department</div><div>Issued</div><div>Expires</div><div>Status</div></div>`+db.employeeCerts.map(c=>{const days=Math.ceil((new Date(c.expires+"T00:00:00")-new Date())/86400000);return `<div class="row cert-grid"><div>${esc(c.employee)}</div><div><b>${esc(c.certification)}</b></div><div>${esc(c.department)}</div><div>${esc(c.issued)}</div><div>${esc(c.expires)}</div><div>${days<0?"Expired":days<=30?"Expiring Soon":"Current"}</div></div>`}).join("")||empty("No employee certifications yet.");
+}
+function openCertificationBuilder(){
+ ensureV4Data();openModal("Employee Certification",`<div class="form-grid"><div class="field"><label>Employee</label><input id="ec_employee"></div><div class="field"><label>Department</label><input id="ec_dept"></div><div class="field"><label>Certification</label><input id="ec_cert" placeholder="Breaker certification, OSHA, etc."></div><div class="field"><label>Issued</label><input id="ec_issued" type="date"></div><div class="field"><label>Expires</label><input id="ec_expires" type="date"></div></div><div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveCertification()">Save</button></div>`,()=>{});
+}
+function saveCertification(){ensureV4Data();const employee=document.getElementById("ec_employee").value.trim(),department=document.getElementById("ec_dept").value.trim(),certification=document.getElementById("ec_cert").value.trim(),issued=document.getElementById("ec_issued").value,expires=document.getElementById("ec_expires").value;if(!employee||!certification||!expires){alert("Employee, certification and expiration are required.");return}db.employeeCerts.push({id:"CERT-"+(db.employeeCerts.length+1),employee,department,certification,issued,expires});save();closeModal();render();}
+function renderManagementReport(){
+ ensureV4Data();const el=document.getElementById("managementReport");if(!el)return;
+ const jobs=db.jobs||[], completed=jobs.filter(j=>j.stage==="Completed").length,active=jobs.length-completed;
+ const quotes=db.quotes||[],approved=quotes.filter(q=>q.status==="Approved"),sales=approved.reduce((a,q)=>a+Number(q.amount||0),0);
+ const ar=(db.invoices||[]).reduce((a,i)=>a+(typeof invoiceBalance==="function"?invoiceBalance(i):0),0);
+ const inv=(db.inventory||[]).reduce((a,i)=>a+Number(i.qty||0)*Number(i.cost||0),0);
+ const engHours=(db.timeSlips||[]).filter(x=>x.department==="Engineering").reduce((a,x)=>a+Number(x.minutes||0),0)/60;
+ const billHours=allBillableHours();
+ const overdue=(db.invoices||[]).filter(x=>typeof invoiceStatus==="function"&&invoiceStatus(x)==="Overdue").length;
+ el.innerHTML=`<div class="report-grid"><div><b>${active}</b><span>Active Jobs</span></div><div><b>${completed}</b><span>Completed Jobs</span></div><div><b>${money(sales)}</b><span>Approved Quote Value</span></div><div><b>${money(ar)}</b><span>Outstanding A/R</span></div><div><b>${money(inv)}</b><span>Inventory Value</span></div><div><b>${engHours.toFixed(1)}</b><span>Engineering Hours</span></div><div><b>${billHours.toFixed(1)}</b><span>Billable Hours</span></div><div><b>${overdue}</b><span>Overdue Invoices</span></div></div>
+ <div class="panel-inner"><h3>Profitability Snapshot</h3><p>Prototype estimate: revenue is based on approved quotes. Production version should calculate actual job margin from labor, parts, outside services and accounting costs.</p>
+ <div class="bar-report"><div><span>Approved Quote Revenue</span><b>${money(sales)}</b></div><div><span>Open A/R</span><b>${money(ar)}</b></div><div><span>Inventory</span><b>${money(inv)}</b></div></div></div>`;
+}
+function renderIntegrations(){
+ ensureV4Data();const el=document.getElementById("integrationPanel");if(!el)return;
+ el.innerHTML=`<div class="notice">The system stores normalized business data first. Production connectors can map that data to each accounting platform instead of forcing AC Electric into one file format.</div><div class="row head integ-grid"><div>Platform</div><div>Format</div><div>Status</div></div>`+db.integrationProfiles.map(p=>`<div class="row integ-grid"><div><b>${esc(p.name)}</b></div><div>${esc(p.format)}</div><div>${esc(p.status)}</div></div>`).join("");
+}
+function universalExport(){
+ ensureV4Data();
+ const data={exportVersion:"4.0",generatedAt:new Date().toISOString(),company:"AC Electric Corp.",customers:db.customers||[],jobs:db.jobs||[],engineeringJobs:db.engineeringJobs||[],motorRecords:db.motorRecords||[],quotes:db.quotes||[],invoices:db.invoices||[],payments:db.payments||[],inventory:db.inventory||[],newMotors:db.newMotors||[],timeSlips:db.timeSlips||[],laborSessions:db.laborSessions||[],employees:db.employees||[],employeeCerts:db.employeeCerts||[],journalEntries:db.journalEntries||[],maintenance:db.maintenance||[],testRecords:db.testRecords||[]};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="AC-Electric-universal-export.json";a.click();URL.revokeObjectURL(a.href);
+}
+function renderAlerts(){
+ const el=document.getElementById("alertPanel");if(!el)return;const a=makeAlerts();
+ el.innerHTML=a.map(x=>`<div class="action-alert ${x.level}"><b>${x.level==="danger"?"🔴":x.level==="warning"?"🟠":"🔵"}</b><span>${esc(x.text)}</span></div>`).join("")||`<div class="notice">✓ No action items detected.</div>`;
+}
+function assistantAnswer(q){
+ const x=q.toLowerCase();ensureV4Data();
+ if(x.includes("parts")||x.includes("waiting")){const j=(db.jobs||[]).filter(j=>j.stage==="Waiting on Parts");return `${j.length} job(s) are waiting on parts: ${j.map(j=>j.id+" ("+j.customer+")").join(", ")||"none"}.`;}
+ if(x.includes("overdue")||x.includes("invoice")){const a=(db.invoices||[]).filter(i=>typeof invoiceStatus==="function"&&invoiceStatus(i)==="Overdue");return `${a.length} invoice(s) are overdue. Total overdue balance: ${money(a.reduce((t,i)=>t+invoiceBalance(i),0))}.`;}
+ if(x.includes("engineering")||x.includes("billable")){return `Engineering has ${allBillableHours().toFixed(2)} total billable tracked hours across the current time-slip data.`;}
+ if(x.includes("inventory")||x.includes("stock")){const low=(db.inventory||[]).filter(i=>i.qty<=i.min);return `${low.length} inventory item(s) are at or below minimum: ${low.map(i=>i.part).join(", ")||"none"}.`;}
+ if(x.includes("job")){return `There are ${(db.jobs||[]).filter(j=>j.stage!=="Completed").length} active shop jobs and ${(db.engineeringJobs||[]).filter(j=>j.status!=="Completed").length} active engineering jobs.`;}
+ return "I can answer prototype questions about jobs, parts, invoices, engineering, billable time and inventory. Try asking: “Which jobs are waiting on parts?”";
+}
+
 function render(){
  const open=db.jobs.filter(j=>j.stage!=="Completed").length;
  document.getElementById("statJobs").textContent=open;
@@ -59,6 +192,7 @@ function render(){
  renderTimeSlips();
  renderAccounting();
  renderEngineering();
+ renderCommandCenter();renderSchedule();renderProcedures();renderMaintenance();renderCertifications();renderManagementReport();renderIntegrations();renderAlerts();
  renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
@@ -1526,5 +1660,13 @@ document.getElementById("exportAccounting")?.addEventListener("click",exportAcco
 
 document.getElementById("newEngineeringJob")?.addEventListener("click",openEngineeringJobBuilder);
 document.getElementById("newTestRecord")?.addEventListener("click",()=>openTestRecordBuilder(""));
+
+document.getElementById("newSchedule")?.addEventListener("click",openScheduleBuilder);
+document.getElementById("newProcedure")?.addEventListener("click",openProcedureBuilder);
+document.getElementById("newMaintenance")?.addEventListener("click",openMaintenanceBuilder);
+document.getElementById("newCertification")?.addEventListener("click",openCertificationBuilder);
+document.getElementById("exportUniversal")?.addEventListener("click",universalExport);
+document.getElementById("exportReport")?.addEventListener("click",()=>{alert("Management report export is available in the production roadmap; use Universal Accounting Export for raw business data in this prototype.");});
+document.getElementById("askAssistant")?.addEventListener("click",()=>{const q=document.getElementById("assistantQuestion").value;document.getElementById("assistantAnswer").innerHTML="<b>Shop Assistant:</b> "+esc(assistantAnswer(q));});
 
 render();
