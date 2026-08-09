@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>ACE Shop Manager — Prototype</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">ACE</div>
+      <div><strong>ACE Shop Manager</strong><small>AC Electric Corp.</small></div>
+    </div>
+    <nav>
+      <button class="nav active" data-view="dashboard">Dashboard</button>
+      <button class="nav" data-view="customers">Customers</button>
+      <button class="nav" data-view="jobs">Jobs / Motors</button>
+      <button class="nav" data-view="inventory">Inventory</button>
+      <button class="nav" data-view="quotes">Quotes</button>
+      <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
+    </nav>
+    <div class="side-note">Prototype v0.1<br>Data is stored on this device.</div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSub">AC Electric Corp. shop overview</p>
+      </div>
+      <button class="primary" id="quickAdd">+ New Job</button>
+    </header>
+
+    <section id="dashboard" class="view active">
+      <div class="cards">
+        <div class="card stat"><span>Open Jobs</span><b id="statJobs">0</b></div>
+        <div class="card stat"><span>Waiting on Parts</span><b id="statParts">0</b></div>
+        <div class="card stat"><span>Ready for Pickup</span><b id="statReady">0</b></div>
+        <div class="card stat"><span>Today's Sales</span><b id="statSales">$0</b></div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-head"><h2>Active Jobs</h2><button class="linkbtn" data-go="jobs">View all</button></div>
+          <div id="dashboardJobs"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Low Inventory</h2><button class="linkbtn" data-go="inventory">Inventory</button></div>
+          <div id="dashboardInventory"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="customers" class="view">
+      <div class="toolbar"><input id="customerSearch" placeholder="Search customers..."><button class="primary" id="addCustomer">+ Customer</button></div>
+      <div class="panel"><div id="customerTable"></div></div>
+    </section>
+
+    <section id="jobs" class="view">
+      <div class="toolbar"><input id="jobSearch" placeholder="Search job, customer, serial number..."><button class="primary" id="addJob">+ New Job</button></div>
+      <div class="panel"><div id="jobTable"></div></div>
+    </section>
+
+    <section id="inventory" class="view">
+      <div class="toolbar"><input id="inventorySearch" placeholder="Search part number or description..."><button class="primary" id="addInventory">+ Part</button></div>
+      <div class="panel"><div id="inventoryTable"></div></div>
+    </section>
+
+    <section id="quotes" class="view">
+      <div class="toolbar"><button class="primary" id="addQuote">+ New Quote</button></div>
+      <div class="panel"><div id="quoteTable"></div></div>
+    </section>
+
+    <section id="deliveries" class="view">
+      <div class="toolbar"><button class="primary" id="addDelivery">+ Schedule Pickup / Delivery</button></div>
+      <div class="panel"><div id="deliveryTable"></div></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="modalTitle"></h2><button class="close" id="closeModal">×</button></div>
+    <form id="modalForm"></form>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
