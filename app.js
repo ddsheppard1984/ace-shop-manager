@@ -55,6 +55,7 @@ function render(){
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
  renderCustomers();renderJobs();renderInventory();renderNewMotors();
  renderSales();
+ renderBilling();
  renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
@@ -677,6 +678,48 @@ function saveInvoice(){
  logAudit("Created invoice");save();closeModal();render();
 }
 
+
+function ensureBillingData(){db.invoices=db.invoices||[];db.billingSettings=db.billingSettings||{termsDays:30}}
+function invoiceDueDate(inv){
+ const d=inv.dueDate?new Date(inv.dueDate+"T23:59:59"):new Date(new Date(inv.date+"T00:00:00").getTime()+30*86400000);
+ return d;
+}
+function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-Number(inv.paid||0))}
+function invoiceStatus(inv){
+ const bal=invoiceBalance(inv);if(bal<=0.009)return "Paid";
+ const due=invoiceDueDate(inv),now=new Date();
+ if(now>due)return "Overdue";
+ return "Open";
+}
+function daysPastDue(inv){
+ const bal=invoiceBalance(inv);if(bal<=0.009)return 0;
+ return Math.max(0,Math.floor((new Date()-invoiceDueDate(inv))/86400000));
+}
+function renderBilling(){
+ ensureBillingData();
+ const sum=document.getElementById("billingSummary"),alerts=document.getElementById("billingAlerts"),table=document.getElementById("billingTable");if(!sum)return;
+ const open=db.invoices.filter(i=>invoiceBalance(i)>0.009),overdue=open.filter(i=>invoiceStatus(i)==="Overdue");
+ const openBal=open.reduce((a,i)=>a+invoiceBalance(i),0),overdueBal=overdue.reduce((a,i)=>a+invoiceBalance(i),0);
+ sum.innerHTML=`<div class="fleet-cards"><div><b>${money(openBal)}</b><span>Outstanding A/R</span></div><div><b>${money(overdueBal)}</b><span>Overdue</span></div><div><b>${open.length}</b><span>Open Invoices</span></div><div><b>${overdue.length}</b><span>Over 30 Days</span></div></div>`;
+ alerts.innerHTML=overdue.length?`<div class="billing-alert">⚠️ <b>${overdue.length} invoice${overdue.length===1?" is":"s are"} over the 30-day Net 30 mark</b> totaling ${money(overdueBal)}.</div>`:`<div class="notice">✓ No outstanding invoices are currently over the Net 30 mark.</div>`;
+ const rows=db.invoices.slice().sort((a,b)=>String(a.dueDate||"").localeCompare(String(b.dueDate||""))).map(i=>{
+   const bal=invoiceBalance(i),st=invoiceStatus(i),past=daysPastDue(i);
+   return `<div class="row ${st==="Overdue"?"billing-overdue":""}"><div><b>${esc(i.number)}</b><div class="muted">${esc(i.jobNumber||i.jobId||"")}</div></div><div>${esc(i.customer||"")}</div><div>${esc(i.date||"")}</div><div>${esc(invoiceDueDate(i).toLocaleDateString())}</div><div>${money(i.total)}</div><div>${money(i.paid)}</div><div><b>${money(bal)}</b></div><div>${st}${past?` · ${past}d late`:""}</div><div><button class="secondary small-btn" onclick="recordInvoicePayment('${i.id}')">Payment</button></div></div>`;
+ }).join("");
+ table.innerHTML=`<div class="row head billing-grid"><div>Invoice</div><div>Customer</div><div>Invoice Date</div><div>Due</div><div>Total</div><div>Paid</div><div>Balance</div><div>Status</div><div></div></div>${rows||empty("No invoices yet.")}`;
+}
+function recordInvoicePayment(id){
+ ensureBillingData();const inv=db.invoices.find(i=>i.id===id);if(!inv)return;
+ const bal=invoiceBalance(inv);if(bal<=0.009){alert("This invoice is already paid.");return}
+ const raw=prompt(`Invoice ${inv.number}\nOutstanding balance: ${money(bal)}\n\nEnter payment amount:`,bal.toFixed(2));if(raw===null)return;
+ const amt=Number(raw);if(!Number.isFinite(amt)||amt<=0||amt>bal){alert("Enter a payment amount greater than zero and no more than the outstanding balance.");return}
+ inv.paid=Number(inv.paid||0)+amt;
+ inv.lastPaymentDate=new Date().toISOString().slice(0,10);
+ inv.status=invoiceStatus(inv);
+ db.payments=db.payments||[];db.payments.push({id:"PAY-"+(db.payments.length+1),invoiceId:id,invoiceNumber:inv.number,customer:inv.customer,amount:amt,date:inv.lastPaymentDate});
+ logAudit(`Recorded payment on ${inv.number}`);save();render();
+}
+
 function renderCustomers(){
  const q=(document.getElementById("customerSearch")?.value||"").toLowerCase();
  let a=db.customers.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
@@ -1158,5 +1201,7 @@ document.getElementById("addMileage")?.addEventListener("click",openMileageBuild
 
 document.getElementById("newSale")?.addEventListener("click",openSaleBuilder);
 document.getElementById("newInvoice")?.addEventListener("click",openInvoiceBuilder);
+
+document.getElementById("refreshBilling")?.addEventListener("click",renderBilling);
 
 render();

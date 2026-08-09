@@ -260,3 +260,14 @@ V2.5 INVOICE JOB NUMBER LINKING
 - New job numbers are created in the Jobs / Motors master list and linked to the invoice.
 - Completed jobs are excluded from the current-job dropdown to keep the list useful.
 - Invoice stores both jobId and jobNumber for future production database relationships.
+
+
+V2.6 BILLING / ACCOUNTS RECEIVABLE
+- Added dedicated Billing / A/R section tied directly to invoices.
+- Tracks Net 30 due dates and outstanding balances.
+- Flags invoices over 30 days past due.
+- Dashboard shows outstanding A/R, overdue dollars, open invoice count and overdue invoice count.
+- Billing table shows invoice, customer, job number, invoice date, due date, total, paid, balance and status.
+- Added prototype payment-entry function that reduces invoice balance and records payment history.
+- Invoice due date remains editable on invoice creation; if omitted, prototype defaults to 30 days from invoice date.
+- Production version should add configurable customer-specific terms, statements, payment processor/accounting integration, collections workflow, permissions and immutable audit history.
