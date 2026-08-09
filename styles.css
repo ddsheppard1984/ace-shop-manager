@@ -83,3 +83,8 @@
 @media(max-width:700px){.productivity-row{grid-template-columns:110px 1fr 65px 50px;font-size:12px}}
 
 .employee-admin-card{border:2px solid #93c5fd!important;background:#eff6ff!important}.employee-admin-card:hover{background:#dbeafe!important}
+
+.timeslip-grid{grid-template-columns:.8fr 1fr 1fr 1.4fr 1.2fr 1fr .7fr .7fr 1.4fr}
+.engineering-highlight{border:2px solid #94a3b8;background:#f8fafc}
+
+.eng-grid{grid-template-columns:1fr 1.3fr 1.1fr 1.4fr 1fr 1fr 1fr}.eng-grid .small-btn{padding:5px 8px}

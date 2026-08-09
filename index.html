@@ -30,6 +30,7 @@
       <button class="nav" data-view="fleet">🚛 Fleet / IFTA</button>
       <button class="nav" data-view="labor">⏱️ Technician Time</button>
       <button class="nav" data-view="timeslips">🕒 Time Slips</button>
+      <button class="nav" data-view="engineering">⚡ Engineering Field Service</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
@@ -181,6 +182,18 @@
         <div class="panel-head"><h2>🕒 Time Slips</h2><span class="muted">Common labor codes for all departments</span></div>
         <div id="timeSlipSummary"></div>
         <div id="timeSlipTable"></div>
+      </div>
+    </section>
+
+    <section id="engineering" class="view">
+      <div class="toolbar">
+        <button class="primary" id="newEngineeringJob">+ New Engineering Job</button>
+        <button class="secondary" id="newTestRecord">+ Test / Certification Record</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>⚡ Engineering Field Service</h2><span class="muted">Field testing, installation, commissioning, certification and rebuild work</span></div>
+        <div id="engineeringSummary"></div>
+        <div id="engineeringJobs"></div>
       </div>
     </section>
 

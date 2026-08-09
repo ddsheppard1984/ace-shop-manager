@@ -305,3 +305,23 @@ V3.0 ADMIN EMPLOYEE TRACKING VISIBILITY FIX
 - Added a clearly visible Employee Tracking & Productivity card directly to the Administration grid.
 - Added a dedicated Administration tab handler that opens the employee tracking dashboard.
 - Employee dashboard includes hours, jobs worked, productivity breakdown by labor/time code and detailed activity history.
+
+
+V3.1 ENGINEERING FIELD SERVICE
+- Expanded Time Slips for the Engineering group and onsite field work.
+- Added department selection and equipment/service category.
+- Engineering time codes include Field Testing, Transformer Testing/Service, Switchgear Testing/Service, Drive Testing/Service, Recloser Testing/Service, Breaker Certification, Breaker Cleaning/Rebuild, Field Installation, Commissioning/Startup, Field Repair and Engineering Field Report.
+- Engineering time can be marked billable and linked to a job/motor.
+- Equipment categories are available for Transformer, Switchgear, Drives, Recloser, Breaker and general field service.
+- This creates a foundation for engineering work orders, field test reports, certifications, installation records and billing from actual engineering time/services.
+
+
+V3.2 ENGINEERING WORKFLOW
+- Added dedicated Engineering Field Service section.
+- Engineering field jobs support job number, customer, equipment category, service type, site, schedule, equipment serial and notes.
+- Service categories include field testing, transformer, switchgear, drives, reclosers, breakers, installation, commissioning, certification, cleaning/rebuild and field repair.
+- Added Test / Certification Records tied to engineering job numbers.
+- Test records support record type, date, engineer/technician, result, test standard/procedure, equipment/serial and summary/results.
+- Engineering time slips remain billable and linked to the engineering job, enabling future automatic billing.
+- Engineering jobs are also added to the central Jobs list so invoices and other modules can find them.
+- Production version should add structured test measurements, required test fields by equipment type, document/photo attachments, certificate generation, signatures and company-approved testing standards/procedures.

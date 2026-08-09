@@ -58,6 +58,7 @@ function render(){
  renderBilling();
  renderTimeSlips();
  renderAccounting();
+ renderEngineering();
  renderMileage();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
@@ -735,9 +736,20 @@ function recordInvoicePayment(id){
 
 
 const DEFAULT_TIME_CODES=[
- {code:"TRAVEL",name:"Travel",billable:false},
- {code:"SHOP",name:"Shop",billable:true},
- {code:"JOB-MISC",name:"Job Misc",billable:true},
+ {code:"TRAVEL",name:"Travel",billable:false,department:"All"},
+ {code:"SHOP",name:"Shop",billable:true,department:"All"},
+ {code:"FIELD-TEST",name:"Field Testing",billable:true,department:"Engineering"},
+ {code:"TRANSFORMER",name:"Transformer Testing / Service",billable:true,department:"Engineering"},
+ {code:"SWITCHGEAR",name:"Switchgear Testing / Service",billable:true,department:"Engineering"},
+ {code:"DRIVES",name:"Drive Testing / Service",billable:true,department:"Engineering"},
+ {code:"RECLOSER",name:"Recloser Testing / Service",billable:true,department:"Engineering"},
+ {code:"BREAKER-CERT",name:"Breaker Certification",billable:true,department:"Engineering"},
+ {code:"BREAKER-CLEAN",name:"Breaker Cleaning / Rebuild",billable:true,department:"Engineering"},
+ {code:"INSTALL",name:"Field Installation",billable:true,department:"Engineering"},
+ {code:"COMMISSION",name:"Commissioning / Startup",billable:true,department:"Engineering"},
+ {code:"FIELD-REPAIR",name:"Field Repair",billable:true,department:"Engineering"},
+ {code:"FIELD-REPORT",name:"Engineering Field Report",billable:true,department:"Engineering"},
+ {code:"JOB-MISC",name:"Job Misc",billable:true,department:"All"},
  {code:"CLEAN",name:"Cleaning",billable:true},
  {code:"TEARDOWN",name:"Tear Down",billable:true},
  {code:"BUILD",name:"Build / Assembly",billable:true},
@@ -766,8 +778,8 @@ function renderTimeSlips(){
  ensureAccountingData();const sum=document.getElementById("timeSlipSummary"),table=document.getElementById("timeSlipTable");if(!sum)return;
  const mins=db.timeSlips.reduce((a,x)=>a+Number(x.minutes||0),0),bill=db.timeSlips.filter(x=>x.billable).reduce((a,x)=>a+Number(x.minutes||0),0);
  sum.innerHTML=`<div class="fleet-cards"><div><b>${(mins/60).toFixed(2)}</b><span>Total Hours</span></div><div><b>${(bill/60).toFixed(2)}</b><span>Billable Hours</span></div><div><b>${db.timeSlips.length}</b><span>Time Slips</span></div></div>`;
- table.innerHTML=`<div class="row head timeslip-grid"><div>Date</div><div>Employee</div><div>Code</div><div>Job / Motor</div><div>Hours</div><div>Billable</div><div>Notes</div></div>`+
- db.timeSlips.slice().reverse().map(x=>`<div class="row timeslip-grid"><div>${esc(x.date)}</div><div>${esc(x.employee)}</div><div><b>${esc(x.code)}</b><div class="muted">${esc(x.codeName)}</div></div><div>${esc(x.jobId||"—")}</div><div>${(Number(x.minutes||0)/60).toFixed(2)}</div><div>${x.billable?"Yes":"No"}</div><div>${esc(x.notes||"")}</div></div>`).join("")||empty("No time slips yet.");
+ table.innerHTML=`<div class="row head timeslip-grid"><div>Date</div><div>Employee</div><div>Department</div><div>Code</div><div>Equipment</div><div>Job / Motor</div><div>Hours</div><div>Billable</div><div>Notes</div></div>`+
+ db.timeSlips.slice().reverse().map(x=>`<div class="row timeslip-grid"><div>${esc(x.date)}</div><div>${esc(x.employee)}</div><div>${esc(x.department||"")}</div><div><b>${esc(x.code)}</b><div class="muted">${esc(x.codeName)}</div></div><div>${esc(x.equipment||"")}</div><div>${esc(x.jobId||"—")}</div><div>${(Number(x.minutes||0)/60).toFixed(2)}</div><div>${x.billable?"Yes":"No"}</div><div>${esc(x.notes||"")}</div></div>`).join("")||empty("No time slips yet.");
 }
 function openTimeSlip(){
  ensureAccountingData();
@@ -775,7 +787,9 @@ function openTimeSlip(){
  <div class="form-grid">
   <div class="field"><label>Employee <span class="req">*</span></label><input id="ts_employee"></div>
   <div class="field"><label>Date <span class="req">*</span></label><input id="ts_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-  <div class="field"><label>Time Code <span class="req">*</span></label><select id="ts_code">${db.timeCodes.map(x=>`<option value="${esc(x.code)}">${esc(x.code)} — ${esc(x.name)}${x.billable?" (Billable)":""}</option>`).join("")}</select></div>
+  <div class="field"><label>Department</label><select id="ts_department"><option>Engineering</option><option>Motor Repair</option><option>Breaker Shop</option><option>Machine Shop</option><option>Drivers</option><option>Office</option><option>Other</option></select></div>
+  <div class="field"><label>Time / Service Code <span class="req">*</span></label><select id="ts_code">${db.timeCodes.map(x=>`<option value="${esc(x.code)}">${esc(x.code)} — ${esc(x.name)}${x.billable?" (Billable)":""}${x.department&&x.department!=="All"?` [${esc(x.department)}]`:""}</option>`).join("")}</select></div>
+  <div class="field"><label>Equipment / Service Category</label><select id="ts_equipment"><option>General Field Service</option><option>Transformer</option><option>Switchgear</option><option>Drives</option><option>Recloser</option><option>Breaker</option><option>Other</option></select></div>
   <div class="field"><label>Hours <span class="req">*</span></label><input id="ts_hours" type="number" min="0" step="0.01"></div>
   <div class="field"><label>Job / Motor #</label><select id="ts_job"><option value="">Not job-specific</option>${(db.jobs||[]).map(j=>`<option value="${esc(j.id)}">${esc(j.id)} — ${esc(j.customer||"")}</option>`).join("")}</select></div>
   <div class="field"><label>Notes</label><input id="ts_notes" placeholder="Optional"></div>
@@ -785,9 +799,9 @@ function openTimeSlip(){
 }
 function saveTimeSlip(){
  ensureAccountingData();
- const employee=document.getElementById("ts_employee").value.trim(),date=document.getElementById("ts_date").value,code=document.getElementById("ts_code").value,hours=Number(document.getElementById("ts_hours").value||0),jobId=document.getElementById("ts_job").value,notes=document.getElementById("ts_notes").value.trim(),tc=db.timeCodes.find(x=>x.code===code);
+ const employee=document.getElementById("ts_employee").value.trim(),date=document.getElementById("ts_date").value,department=document.getElementById("ts_department").value,code=document.getElementById("ts_code").value,equipment=document.getElementById("ts_equipment").value,hours=Number(document.getElementById("ts_hours").value||0),jobId=document.getElementById("ts_job").value,notes=document.getElementById("ts_notes").value.trim(),tc=db.timeCodes.find(x=>x.code===code);
  if(!employee||!date||hours<=0||!tc){alert("Enter employee, date, time code and a valid number of hours.");return}
- db.timeSlips.push({id:"TS-"+(db.timeSlips.length+1),employee,date,code,codeName:tc.name,billable:!!tc.billable,minutes:hours*60,jobId,notes,createdAt:new Date().toISOString()});
+ db.timeSlips.push({id:"TS-"+(db.timeSlips.length+1),employee,date,department,code,codeName:tc.name,equipment,billable:!!tc.billable,minutes:hours*60,jobId,notes,createdAt:new Date().toISOString()});
  logAudit("Added time slip");save();closeModal();render();
 }
 function renderAccounting(){
@@ -853,6 +867,13 @@ function employeeJobs(emp){
  (db.laborSessions||[]).filter(x=>x.technician===emp).forEach(x=>ids.add(x.jobId));
  (db.timeSlips||[]).filter(x=>x.employee===emp&&x.jobId).forEach(x=>ids.add(x.jobId));
  return [...ids];
+}
+function engineeringProductivity(){
+ ensureAccountingData();
+ const rows=(db.timeSlips||[]).filter(x=>x.department==="Engineering");
+ const buckets={};
+ rows.forEach(x=>{const k=x.equipment||x.codeName||"Other";buckets[k]=(buckets[k]||0)+Number(x.minutes||0)});
+ return buckets;
 }
 function employeeProductivity(emp){
  ensureEmployeeData();
@@ -920,6 +941,88 @@ function openEmployeeReport(id){
   <div class="row head employee-history-grid"><div>Date</div><div>Job / Motor</div><div>Type / Code</div><div>Procedure</div><div>Hours</div></div>
   ${[...labor.map(x=>({date:x.date,job:x.jobId,type:"Timer",code:"",stage:x.stage,mins:x.minutes})),...slips.map(x=>({date:x.date,job:x.jobId,type:"Time Slip",code:x.code,stage:x.codeName,mins:x.minutes}))].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<div class="row employee-history-grid"><div>${esc(x.date)}</div><div>${esc(x.job||"—")}</div><div>${esc(x.type)} ${x.code?`· ${esc(x.code)}`:""}</div><div>${esc(x.stage||"")}</div><div>${(Number(x.mins||0)/60).toFixed(2)}</div></div>`).join("")||empty("No work activity recorded.")}
  </div>`;
+}
+
+
+function ensureEngineeringData(){
+ db.engineeringJobs=db.engineeringJobs||[];
+ db.testRecords=db.testRecords||[];
+}
+function renderEngineering(){
+ ensureEngineeringData();
+ const sum=document.getElementById("engineeringSummary"),jobs=document.getElementById("engineeringJobs");if(!sum)return;
+ const active=db.engineeringJobs.filter(x=>x.status!=="Completed").length;
+ const billable=(db.timeSlips||[]).filter(x=>x.department==="Engineering"&&x.billable).reduce((a,x)=>a+Number(x.minutes||0),0)/60;
+ const tests=db.testRecords.length,certs=db.testRecords.filter(x=>x.recordType==="Breaker Certification").length;
+ sum.innerHTML=`<div class="fleet-cards"><div><b>${active}</b><span>Active Field Jobs</span></div><div><b>${billable.toFixed(2)}</b><span>Billable Engineering Hrs</span></div><div><b>${tests}</b><span>Test Records</span></div><div><b>${certs}</b><span>Breaker Certifications</span></div></div>`;
+ jobs.innerHTML=`<div class="row head eng-grid"><div>Job</div><div>Customer</div><div>Equipment</div><div>Service</div><div>Status</div><div>Scheduled</div><div>Actions</div></div>`+
+ db.engineeringJobs.slice().reverse().map(j=>`<div class="row eng-grid"><div><b>${esc(j.jobNumber)}</b></div><div>${esc(j.customer)}</div><div>${esc(j.equipmentCategory)}</div><div>${esc(j.serviceType)}</div><div>${esc(j.status)}</div><div>${esc(j.scheduledDate||"")}</div><div><button class="secondary small-btn" onclick="openEngineeringJob('${j.id}')">Open</button></div></div>`).join("")||empty("No engineering field jobs yet.");
+}
+function openEngineeringJob(id){
+ ensureEngineeringData();const j=db.engineeringJobs.find(x=>x.id===id);if(!j)return;
+ const records=db.testRecords.filter(x=>x.jobNumber===j.jobNumber);
+ const slips=(db.timeSlips||[]).filter(x=>x.jobId===j.jobNumber&&x.department==="Engineering");
+ openModal("Engineering Job "+j.jobNumber,`
+ <div class="notice"><b>${esc(j.customer)}</b> · ${esc(j.equipmentCategory)} · ${esc(j.serviceType)}<br>Status: <b>${esc(j.status)}</b></div>
+ <div class="form-grid">
+  <div class="field"><label>Job Number</label><input value="${esc(j.jobNumber)}" disabled></div>
+  <div class="field"><label>Customer</label><input value="${esc(j.customer)}" disabled></div>
+  <div class="field"><label>Equipment</label><input value="${esc(j.equipmentCategory)}" disabled></div>
+  <div class="field"><label>Site</label><input value="${esc(j.site||"")}" disabled></div>
+ </div>
+ <h4>Testing / Certification Records (${records.length})</h4>
+ ${records.map(r=>`<div class="notice"><b>${esc(r.recordType)}</b> · ${esc(r.testDate)} · ${esc(r.result)}<br>${esc(r.summary||"")}</div>`).join("")||empty("No test records yet.")}
+ <h4>Engineering Time (${slips.length} entries)</h4>
+ ${slips.map(x=>`<div class="notice">${esc(x.date)} · ${esc(x.codeName||x.code)} · ${(Number(x.minutes||0)/60).toFixed(2)} hrs · ${esc(x.equipment||"")}</div>`).join("")||empty("No engineering time recorded.")}
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();setTimeout(()=>openTestRecordBuilder('${j.jobNumber}'),50)">+ Add Test / Certification</button></div>
+ `,()=>{});
+}
+function openEngineeringJobBuilder(){
+ ensureEngineeringData();
+ openModal("New Engineering Field Job",`
+ <div class="form-grid">
+  <div class="field"><label>Job Number <span class="req">*</span></label><input id="ej_job" placeholder="E-2001"></div>
+  <div class="field"><label>Customer <span class="req">*</span></label><select id="ej_customer">${customerOptions()}</select></div>
+  <div class="field"><label>Equipment Category</label><select id="ej_equipment"><option>Transformer</option><option>Switchgear</option><option>Drives</option><option>Recloser</option><option>Breaker</option><option>General Field Service</option></select></div>
+  <div class="field"><label>Service Type</label><select id="ej_service"><option>Field Testing</option><option>Installation</option><option>Commissioning / Startup</option><option>Breaker Certification</option><option>Breaker Cleaning / Rebuild</option><option>Field Repair</option><option>Inspection</option><option>Other</option></select></div>
+  <div class="field"><label>Site / Location</label><input id="ej_site"></div>
+  <div class="field"><label>Scheduled Date</label><input id="ej_date" type="date"></div>
+  <div class="field"><label>Equipment ID / Serial</label><input id="ej_serial"></div>
+  <div class="field"><label>Notes</label><input id="ej_notes"></div>
+ </div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveEngineeringJob()">Create Job</button></div>`,()=>{});
+}
+function saveEngineeringJob(){
+ ensureEngineeringData();
+ const jobNumber=document.getElementById("ej_job").value.trim(),customer=document.getElementById("ej_customer").value,equipmentCategory=document.getElementById("ej_equipment").value,serviceType=document.getElementById("ej_service").value,site=document.getElementById("ej_site").value.trim(),scheduledDate=document.getElementById("ej_date").value,serial=document.getElementById("ej_serial").value.trim(),notes=document.getElementById("ej_notes").value.trim();
+ if(!jobNumber||!customer){alert("Job number and customer are required.");return}
+ if(db.engineeringJobs.some(x=>x.jobNumber.toLowerCase()===jobNumber.toLowerCase())){alert("That engineering job number already exists.");return}
+ db.engineeringJobs.push({id:"ENG-"+(db.engineeringJobs.length+1),jobNumber,customer,equipmentCategory,serviceType,site,scheduledDate,serial,notes,status:"Scheduled",createdAt:new Date().toISOString()});
+ db.jobs=db.jobs||[]; if(!db.jobs.some(x=>x.id===jobNumber)) db.jobs.push({id:jobNumber,customer,type:"Engineering Field Service",stage:"Scheduled",notes});
+ logAudit("Created engineering field job "+jobNumber);save();closeModal();render();
+}
+function openTestRecordBuilder(jobNumber=""){
+ ensureEngineeringData();
+ openModal("Test / Certification Record",`
+ <div class="form-grid">
+  <div class="field"><label>Job Number <span class="req">*</span></label><input id="tr_job" value="${esc(jobNumber)}"></div>
+  <div class="field"><label>Record Type</label><select id="tr_type"><option>Field Test</option><option>Transformer Test</option><option>Switchgear Test</option><option>Drive Test</option><option>Recloser Test</option><option>Breaker Test</option><option>Breaker Certification</option><option>Breaker Cleaning / Rebuild</option><option>Installation / Commissioning</option></select></div>
+  <div class="field"><label>Test Date</label><input id="tr_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+  <div class="field"><label>Technician / Engineer</label><input id="tr_person"></div>
+  <div class="field"><label>Result</label><select id="tr_result"><option>Pass</option><option>Pass with Notes</option><option>Fail</option><option>Needs Repair</option><option>Pending</option></select></div>
+  <div class="field"><label>Test Standard / Procedure</label><input id="tr_standard" placeholder="Enter company standard later"></div>
+  <div class="field"><label>Equipment / Serial</label><input id="tr_equipment"></div>
+  <div class="field"><label>Summary / Results</label><input id="tr_summary"></div>
+ </div>
+ <div class="notice">Production version can attach test sheets, meter readings, photographs, certificates and signed customer documents to this record.</div>
+ <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveTestRecord()">Save Record</button></div>`,()=>{});
+}
+function saveTestRecord(){
+ ensureEngineeringData();
+ const jobNumber=document.getElementById("tr_job").value.trim(),recordType=document.getElementById("tr_type").value,testDate=document.getElementById("tr_date").value,person=document.getElementById("tr_person").value.trim(),result=document.getElementById("tr_result").value,standard=document.getElementById("tr_standard").value.trim(),equipment=document.getElementById("tr_equipment").value.trim(),summary=document.getElementById("tr_summary").value.trim();
+ if(!jobNumber||!testDate){alert("Job number and test date are required.");return}
+ db.testRecords.push({id:"TEST-"+(db.testRecords.length+1),jobNumber,recordType,testDate,person,result,standard,equipment,summary,createdAt:new Date().toISOString()});
+ logAudit("Added engineering test/certification record");save();closeModal();render();
 }
 
 function renderCustomers(){
@@ -1409,5 +1512,8 @@ document.getElementById("refreshBilling")?.addEventListener("click",renderBillin
 document.getElementById("newTimeSlip")?.addEventListener("click",openTimeSlip);
 document.getElementById("newJournal")?.addEventListener("click",openJournalEntry);
 document.getElementById("exportAccounting")?.addEventListener("click",exportAccountingData);
+
+document.getElementById("newEngineeringJob")?.addEventListener("click",openEngineeringJobBuilder);
+document.getElementById("newTestRecord")?.addEventListener("click",()=>openTestRecordBuilder(""));
 
 render();
