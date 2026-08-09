@@ -96,6 +96,8 @@ function equipmentTypeOptions(selected){
  return types.map(t=>`<option ${t===selected?"selected":""}>${esc(t)}</option>`).join("");
 }
 function renderEquipmentPage(){
+ const target=document.getElementById("equipmentPage");
+ if(!target)return;
  const list=db.equipment||[];
  const q=(window.equipmentSearch||"").toLowerCase();
  const type=window.equipmentFilterType||"";
@@ -223,7 +225,7 @@ initSupabase();
 render();
 const motorParam=new URLSearchParams(location.search).get('motor'); if(motorParam && db.jobs.some(j=>j.id===motorParam)){setTimeout(()=>editJob(motorParam),100);}
 }
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>nav(b.dataset.view));
+document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>nav(b.dataset.view)));
 document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>nav(b.dataset.go));
 
 function ensureV4Data(){
