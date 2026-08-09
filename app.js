@@ -261,10 +261,13 @@ function openAdminTab(tab){
    <div class="import-card"><b>💾 Prototype Backup</b><p>Export the current prototype data as a JSON backup file.</p><button class="secondary" onclick="exportPrototypeBackup()">📤 Export Backup</button><div class="muted">Production will use scheduled encrypted cloud backups.</div></div>
   </div>`; 
  if(tab==="parts")html=`<h3>Parts / Bearings Catalog</h3><div class="notice">Prototype placeholder for the AC Electric parts catalog. Production version will support bearing numbers, manufacturers, seals, prices, suppliers, stock levels and approved substitutes.</div><button class="primary" onclick="alert('Parts catalog framework ready for the next build.')">Configure Catalog</button>`;
+ if(tab==="ifta")html=`<h3>Fleet / IFTA — Quarterly Running Log</h3>
+  <div id="iftaAdminLog"></div>`; 
  if(tab==="delivery")html=`<h3>Delivery Settings</h3><div class="form-grid">${motorText("Default Drivers","a_drivers",a.delivery.defaultDrivers,2)}<div class="field"><label>Require customer signature on delivery</label><select id="a_deliverySig"><option value="1" ${a.delivery.requireDeliverySignature?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDeliverySignature?"selected":""}>No</option></select></div><div class="field"><label>Require damage photo when damaged</label><select id="a_damagePhoto"><option value="1" ${a.delivery.requireDamagePhoto?"selected":""}>Yes</option><option value="0" ${!a.delivery.requireDamagePhoto?"selected":""}>No</option></select></div></div><button class="primary" onclick="saveAdminTab('delivery')">Save Delivery Settings</button>`;
  if(tab==="audit")html=`<h3>Audit Log</h3><div class="audit-list">${(db.audit||[]).slice().reverse().map(x=>`<div><b>${esc(x.action)}</b> · ${esc(x.user||"System")}<span>${esc(x.at||"")}</span></div>`).join("")||empty("No activity recorded yet.")}</div>`;
  if(tab==="system")html=`<h3>System / Production Readiness</h3><div class="notice"><b>Current prototype:</b> GitHub Pages + browser-local demo data. Do not use real customer, employee, signature or production job data here.</div><div class="system-checks"><div>🔐 Authentication: <b>Production required</b></div><div>🗄️ Managed database: <b>Production required</b></div><div>📷 Private photo storage: <b>Production required</b></div><div>💾 Automated backups: <b>Production required</b></div><div>📝 Audit logging: <b>Prototype framework</b></div><div>📱 iPhone/iPad/Windows: <b>Supported by web app</b></div></div>`;
  el.innerHTML=html;
+ if(tab==='ifta')renderIFTAAdmin();
 }
 function saveAdminTab(tab){
  adminData();
@@ -452,6 +455,43 @@ function saveMileage(){
  if(Math.abs(sm-total)>0.01){alert("State mileage must equal total odometer miles before the entry can be saved.");return}
  db.mileage=db.mileage||[];db.mileage.push({id:"M-"+(db.mileage.length+1),driver,date,truck,startOdo:start,endOdo:end,totalMiles:total,states,createdAt:new Date().toISOString()});
  logAudit("Added fleet mileage entry");save();closeModal();render();
+}
+
+
+function getQuarterInfo(dateStr){
+ const d=new Date((dateStr||new Date().toISOString().slice(0,10))+"T00:00:00");
+ const q=Math.floor(d.getMonth()/3)+1;
+ return {year:d.getFullYear(),quarter:q,label:`Q${q} ${d.getFullYear()}`};
+}
+function renderIFTAAdmin(){
+ const el=document.getElementById("iftaAdminLog");if(!el)return;
+ db.mileage=db.mileage||[];
+ const now=getQuarterInfo(new Date().toISOString().slice(0,10));
+ const selected=window.iftaAdminQuarter||`${now.year}-Q${now.quarter}`;
+ const [yr,qq]=selected.split("-Q").map(Number);
+ const entries=db.mileage.filter(m=>{const q=getQuarterInfo(m.date);return q.year===yr&&q.quarter===qq});
+ const states={};
+ entries.forEach(m=>Object.entries(m.states||{}).forEach(([st,x])=>{
+   states[st]=states[st]||{miles:0,gallons:0};
+   states[st].miles+=Number(x.miles||0);states[st].gallons+=Number(x.gallons||0);
+ }));
+ const totalMiles=entries.reduce((a,m)=>a+Number(m.totalMiles||0),0);
+ const totalGallons=Object.values(states).reduce((a,x)=>a+x.gallons,0);
+ el.innerHTML=`<div class="ifta-quarter-bar">
+   <div><b>IFTA Quarter Running Tally</b><div class="muted">Updates automatically as mileage entries are added.</div></div>
+   <select id="iftaQuarterSelect">${[...Array(8)].map((_,i)=>{
+     const d=new Date();d.setMonth(d.getMonth()-i*3);const q=getQuarterInfo(d.toISOString().slice(0,10));const v=`${q.year}-Q${q.quarter}`;
+     return `<option value="${v}" ${v===selected?"selected":""}>${q.label}</option>`;
+   }).join("")}</select>
+ </div>
+ <div class="fleet-cards"><div><b>${totalMiles.toLocaleString()}</b><span>Total Miles</span></div><div><b>${totalGallons.toFixed(1)}</b><span>Total Gallons</span></div><div><b>${entries.length}</b><span>Mileage Entries</span></div></div>
+ <div class="ifta-state-table">
+  <div class="row head"><div>State</div><div>Miles</div><div>Gallons</div><div>MPG</div></div>
+  ${Object.entries(states).sort((a,b)=>a[0].localeCompare(b[0])).map(([st,x])=>`<div class="row"><div><b>${esc(st)}</b></div><div>${x.miles.toLocaleString()}</div><div>${x.gallons.toFixed(1)}</div><div>${x.gallons? (x.miles/x.gallons).toFixed(2):"—"}</div></div>`).join("")||empty("No mileage recorded for this quarter.")}
+  ${Object.keys(states).length?`<div class="row ifta-total"><div><b>TOTAL</b></div><div><b>${totalMiles.toLocaleString()}</b></div><div><b>${totalGallons.toFixed(1)}</b></div><div>${totalGallons?(totalMiles/totalGallons).toFixed(2):"—"}</div></div>`:""}
+ </div>
+ <div class="notice">This is a running operational tally for the quarter. Final IFTA filing calculations should be reviewed by the responsible office/accounting person before filing.</div>`;
+ document.getElementById("iftaQuarterSelect")?.addEventListener("change",e=>{window.iftaAdminQuarter=e.target.value;renderIFTAAdmin()});
 }
 
 function renderCustomers(){

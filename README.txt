@@ -199,3 +199,12 @@ V1.8 SIMPLE FLEET / IFTA MILEAGE
 - Gallons are tracked by state and totaled for reporting.
 - No job number or fuel receipt fields are included.
 - Prototype includes a mileage summary dashboard.
+
+
+V1.9 ADMIN IFTA QUARTERLY RUNNING LOG
+- Administration now includes Fleet / IFTA.
+- Shows a running quarterly tally of total miles and gallons.
+- Breaks the quarter down by state with miles, gallons and calculated MPG.
+- Quarter selector allows review of recent quarters.
+- Automatically updates as mileage entries are added.
+- Final filing remains subject to office/accounting review.
