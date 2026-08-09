@@ -236,3 +236,9 @@ V2.2 ADMIN IFTA VISIBILITY FIX
 - Added a guaranteed Fleet / IFTA tab renderer so the quarterly running log opens from Administration.
 - Added explicit Administration rendering and card click binding.
 - IFTA dashboard remains separate from the driver mileage entry and supports quarterly totals/finalization.
+
+
+V2.3 ADMIN IFTA CARD FIX
+- Added the missing Fleet / IFTA card directly to the Administration HTML grid.
+- The card is visibly highlighted so it is easy to find.
+- It opens the existing quarterly Fleet / IFTA running log, including state totals and quarter finalization.
