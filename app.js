@@ -53,7 +53,7 @@ function render(){
  document.getElementById("dashboardJobs").innerHTML=db.jobs.slice(0,6).map(j=>`<div class="job-card"><strong>${esc(j.id)} — ${esc(j.customer)}</strong><div class="meta"><span class="muted">${esc(j.type)} ${j.hp?j.hp+" HP":""}</span>${badge(j.stage)}</div></div>`).join("")||empty();
  const low=db.inventory.filter(i=>i.qty<=i.min);
  document.getElementById("dashboardInventory").innerHTML=low.map(i=>`<div class="job-card"><strong>${esc(i.part)}</strong><div class="meta"><span class="muted">${esc(i.desc)}</span><span class="danger">${i.qty} on hand</span></div></div>`).join("")||empty("No low-stock items");
- renderCustomers();renderJobs();renderInventory();renderQuotes();renderDeliveries();
+ renderCustomers();renderJobs();renderInventory();renderNewMotors();renderQuotes();renderDeliveries();
 }
 function badge(s){let c=s==="Ready for Pickup"?"green":s==="Waiting on Parts"?"yellow":s==="Completed"?"blue":s==="Failed"?"red":"";return `<span class="badge ${c}">${esc(s)}</span>`}
 function empty(t="No records yet"){return `<div class="empty">${t}</div>`}
@@ -255,7 +255,8 @@ function openAdminTab(tab){
  if(tab==="imports")html=`<h3>Import / Export</h3>
   <div class="import-grid">
    <div class="import-card"><b>👥 Customers</b><p>Import an existing customer list from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('customers')">📥 Import Customers</button><button class="secondary" onclick="exportCustomersCsv()">📤 Export Customers</button><div class="muted">Expected columns: Name, Contact, Phone, Email, Address, Notes</div></div>
-   <div class="import-card"><b>📦 Inventory</b><p>Import parts, bearings and inventory from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('inventory')">📥 Import Inventory</button><button class="secondary" onclick="exportInventoryCsv()">📤 Export Inventory</button><div class="muted">Expected columns: Part Number, Description, Category, Manufacturer, Quantity, Unit Cost, Location, Reorder Level</div></div>
+   <div class="import-card"><b>📦 Inventory / Parts</b><p>Import parts, bearings and general inventory from a CSV spreadsheet.</p><button class="primary" onclick="importCsv('inventory')">📥 Import Inventory</button><button class="secondary" onclick="exportInventoryCsv()">📤 Export Inventory</button><div class="muted">Expected columns: Part Number, Description, Category, Manufacturer, Quantity, Unit Cost, Location, Reorder Level</div></div>
+   <div class="import-card"><b>⚙️ New Motors</b><p>Import your stock of new motors from a CSV spreadsheet.</p><button class="primary" onclick="importNewMotorsCsv()">📥 Import New Motors</button><button class="secondary" onclick="exportNewMotorsCsv()">📤 Export New Motors</button><div class="muted">Includes stock #, manufacturer, model, HP, AC/DC, phase, voltage, RPM, quantity, cost, sale price and location.</div></div>
    <div class="import-card"><b>💾 Prototype Backup</b><p>Export the current prototype data as a JSON backup file.</p><button class="secondary" onclick="exportPrototypeBackup()">📤 Export Backup</button><div class="muted">Production will use scheduled encrypted cloud backups.</div></div>
   </div>`; 
  if(tab==="parts")html=`<h3>Parts / Bearings Catalog</h3><div class="notice">Prototype placeholder for the AC Electric parts catalog. Production version will support bearing numbers, manufacturers, seals, prices, suppliers, stock levels and approved substitutes.</div><button class="primary" onclick="alert('Parts catalog framework ready for the next build.')">Configure Catalog</button>`;
@@ -331,6 +332,64 @@ function exportPrototypeBackup(){
  const copy=JSON.parse(JSON.stringify(db));delete copy.users?.forEach?.(()=>{});
  downloadTextFile("ACE-Shop-Manager-backup.json",JSON.stringify(copy,null,2),"application/json");
  logAudit("Exported prototype backup");
+}
+
+
+function renderNewMotors(){
+ const el=document.getElementById("newMotorTable");if(!el)return;
+ db.newMotors=db.newMotors||[];
+ const q=(document.getElementById("newMotorSearch")?.value||"").toLowerCase();
+ const rows=db.newMotors.filter(m=>JSON.stringify(m).toLowerCase().includes(q));
+ el.innerHTML=`<div class="row head"><div>Motor</div><div>Nameplate</div><div>Stock</div><div>Location</div><div>Status</div></div>`+
+ rows.map(m=>`<div class="row"><div><strong>${esc(m.manufacturer)} ${esc(m.model)}</strong><div class="muted">Stock #: ${esc(m.stockNo||"—")}</div></div><div>${esc(m.hp||"—")} HP · ${esc(m.acdc||"—")} · ${esc(m.phase||"—")} phase · ${esc(m.voltage||"—")} V<div class="muted">${esc(m.rpm||"")} RPM · Frame ${esc(m.frame||"")}</div></div><div><b>${m.qty||0}</b><div class="muted">Reorder ${m.reorderLevel||0}</div></div><div>${esc(m.location||"—")}</div><div>${m.active===false?"Inactive":"Available"}</div></div>`).join("")||empty("No new motors in stock.");
+}
+function openNewMotorBuilder(existing=null){
+ const m=existing||{manufacturer:"",model:"",stockNo:"",serial:"",hp:"",acdc:"AC",phase:"3",voltage:"",amps:"",rpm:"",frame:"",frequency:"60",enclosure:"",qty:1,location:"",cost:0,salePrice:0,reorderLevel:0,notes:""};
+ openModal(existing?"Edit New Motor":"Add New Motor",`
+  <div class="form-grid">
+   ${motorField("Manufacturer","nm_manufacturer",m.manufacturer)}
+   ${motorField("Model / Type","nm_model",m.model)}
+   ${motorField("Stock / SKU","nm_stockNo",m.stockNo)}
+   ${motorField("Serial Number","nm_serial",m.serial)}
+   ${motorField("HP / kW","nm_hp",m.hp)}
+   ${motorField("AC / DC","nm_acdc",m.acdc)}
+   ${motorField("Phase","nm_phase",m.phase)}
+   ${motorField("Voltage","nm_voltage",m.voltage)}
+   ${motorField("Amps","nm_amps",m.amps)}
+   ${motorField("RPM","nm_rpm",m.rpm)}
+   ${motorField("Frame","nm_frame",m.frame)}
+   ${motorField("Frequency","nm_frequency",m.frequency)}
+   ${motorField("Enclosure","nm_enclosure",m.enclosure)}
+   ${motorField("Quantity","nm_qty",m.qty,"number")}
+   ${motorField("Location","nm_location",m.location)}
+   ${motorField("Unit Cost","nm_cost",m.cost,"number")}
+   ${motorField("Sale Price","nm_salePrice",m.salePrice,"number")}
+   ${motorField("Reorder Level","nm_reorderLevel",m.reorderLevel,"number")}
+   ${motorText("Notes","nm_notes",m.notes,2)}
+  </div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveNewMotor('${existing?existing.id:""}')">Save New Motor</button></div>
+ `,()=>{});
+}
+function saveNewMotor(id){
+ db.newMotors=db.newMotors||[];let m=id?db.newMotors.find(x=>x.id===id):{id:"NM-"+(db.newMotors.length+1)};
+ if(!id)db.newMotors.push(m);
+ const fields={manufacturer:"nm_manufacturer",model:"nm_model",stockNo:"nm_stockNo",serial:"nm_serial",hp:"nm_hp",acdc:"nm_acdc",phase:"nm_phase",voltage:"nm_voltage",amps:"nm_amps",rpm:"nm_rpm",frame:"nm_frame",frequency:"nm_frequency",enclosure:"nm_enclosure",qty:"nm_qty",location:"nm_location",cost:"nm_cost",salePrice:"nm_salePrice",reorderLevel:"nm_reorderLevel",notes:"nm_notes"};
+ Object.entries(fields).forEach(([k,id2])=>{m[k]=document.getElementById(id2)?.value||""});
+ ["qty","cost","salePrice","reorderLevel"].forEach(k=>m[k]=Number(m[k]||0));
+ m.active=true;save();closeModal();render();
+}
+function exportNewMotorsCsv(){
+ db.newMotors=db.newMotors||[];
+ const rows=[["Stock Number","Manufacturer","Model","Serial","HP","AC/DC","Phase","Voltage","Amps","RPM","Frame","Frequency","Enclosure","Quantity","Location","Unit Cost","Sale Price","Reorder Level","Notes"]];
+ db.newMotors.forEach(m=>rows.push([m.stockNo,m.manufacturer,m.model,m.serial,m.hp,m.acdc,m.phase,m.voltage,m.amps,m.rpm,m.frame,m.frequency,m.enclosure,m.qty,m.location,m.cost,m.salePrice,m.reorderLevel,m.notes]));
+ downloadTextFile("AC-Electric-New-Motors.csv",rows.map(r=>r.map(csvEscape).join(",")).join("\n"));
+}
+function importNewMotorsCsv(){
+ const input=document.createElement("input");input.type="file";input.accept=".csv,text/csv";input.onchange=async()=>{const f=input.files?.[0];if(!f)return;const rows=parseCSV(await f.text());if(rows.length<2){alert("CSV needs headers and at least one motor.");return}
+ const h=rows[0].map(x=>x.trim().toLowerCase());db.newMotors=db.newMotors||[];
+ rows.slice(1).forEach(r=>{const o=Object.fromEntries(h.map((x,i)=>[x,r[i]||""]));if(!o["stock number"]&& !o["model"])return;db.newMotors.push({id:"NM-"+(db.newMotors.length+1),stockNo:o["stock number"]||"",manufacturer:o.manufacturer||"",model:o.model||"",serial:o.serial||"",hp:o.hp||"",acdc:o["ac/dc"]||o.acdc||"",phase:o.phase||"",voltage:o.voltage||"",amps:o.amps||"",rpm:o.rpm||"",frame:o.frame||"",frequency:o.frequency||"",enclosure:o.enclosure||"",qty:Number(o.quantity||0),location:o.location||"",cost:Number(o["unit cost"]||0),salePrice:Number(o["sale price"]||0),reorderLevel:Number(o["reorder level"]||0),notes:o.notes||"",active:true})});
+ logAudit("Imported new motor inventory");save();render();openAdminTab("imports");alert("New motor inventory imported.");
+ };input.click();
 }
 
 function renderCustomers(){
@@ -806,5 +865,8 @@ document.getElementById("addUser")?.addEventListener("click",()=>openUserBuilder
 
 db.jobs.forEach(ensureMotorMasterRecord);
 save();
+
+document.getElementById("addNewMotor")?.addEventListener("click",()=>openNewMotorBuilder());
+document.getElementById("newMotorSearch")?.addEventListener("input",renderNewMotors);
 
 render();

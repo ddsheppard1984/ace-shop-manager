@@ -50,3 +50,6 @@
 
 .import-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.import-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#fff}.import-card b{font-size:15px}.import-card p{font-size:13px;color:#475569;min-height:40px}.import-card button{margin:4px 5px 4px 0}.import-card .muted{font-size:11px;margin-top:8px}
 @media(max-width:900px){.import-grid{grid-template-columns:1fr}}
+
+
+.new-motor-stock-note{padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:10px}

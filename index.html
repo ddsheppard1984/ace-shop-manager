@@ -20,13 +20,14 @@
       <button class="nav" data-view="customers">Customers</button>
       <button class="nav" data-view="jobs">Jobs / Motors</button>
       <button class="nav" data-view="motor-records">Motor Master Records</button>
-      <button class="nav" data-view="inventory">Inventory</button>
+      <button class="nav" data-view="inventory">Inventory / Parts</button>
+      <button class="nav" data-view="new-motors">New Motors</button>
       <button class="nav" data-view="quotes">Quotes</button>
       <button class="nav" data-view="deliveries">Pickups / Deliveries</button>
       <button class="nav" data-view="users">Users / Access</button>
       <button class="nav" data-view="admin">⚙️ Administration</button>
     </nav>
-    <div class="side-note">Prototype v1.3<br>Data is stored on this device.</div>
+    <div class="side-note">Prototype v1.7<br>Data is stored on this device.</div>
   </aside>
 
   <main>
@@ -98,6 +99,14 @@
           <button class="admin-card" data-admin-tab="system"><b>🛡️ System</b><span>Backup and production readiness</span></button>
         </div>
         <div id="adminPanel" class="admin-panel"></div>
+      </div>
+    </section>
+
+    <section id="new-motors" class="view">
+      <div class="toolbar"><input id="newMotorSearch" placeholder="Search new motor stock..."><button class="primary" id="addNewMotor">+ Add New Motor</button></div>
+      <div class="panel">
+        <div class="panel-head"><h2>New Motor Inventory</h2><span class="muted">New motors available for sale, rental, replacement or jobs</span></div>
+        <div id="newMotorTable"></div>
       </div>
     </section>
 

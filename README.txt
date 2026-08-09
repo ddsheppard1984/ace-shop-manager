@@ -173,3 +173,19 @@ V1.5 CUSTOMER / INVENTORY IMPORTS
 - Customer and inventory CSV exports are available.
 - Prototype JSON backup export is available.
 - Production version should add validated templates, duplicate matching, preview-before-import, error reporting, rollback, permissions and encrypted cloud backups.
+
+
+V1.6 NEW MOTOR INVENTORY
+- Added a dedicated New Motors inventory section.
+- New motors can be added individually with detailed nameplate/stock information.
+- Search new motor inventory.
+- Track quantity, location, cost, sale price and reorder level.
+- Administration Import/Export now supports importing and exporting new motor inventory via CSV.
+- New motor CSV supports stock number, manufacturer, model, serial, HP, AC/DC, phase, voltage, amps, RPM, frame, frequency, enclosure, quantity, location, unit cost, sale price, reorder level and notes.
+- Future production version can connect new motor stock directly to POS sales, quotes, reservations and inventory depletion.
+
+
+V1.7 NEW MOTOR INVENTORY DISPLAY FIX
+- Fixed the New Motors page so its inventory is rendered when the application loads and after changes.
+- New Motors navigation remains available from the sidebar.
+- Existing imported/new-motor records should now appear immediately.
