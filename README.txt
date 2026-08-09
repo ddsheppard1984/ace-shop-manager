@@ -325,3 +325,15 @@ V3.2 ENGINEERING WORKFLOW
 - Engineering time slips remain billable and linked to the engineering job, enabling future automatic billing.
 - Engineering jobs are also added to the central Jobs list so invoices and other modules can find them.
 - Production version should add structured test measurements, required test fields by equipment type, document/photo attachments, certificate generation, signatures and company-approved testing standards/procedures.
+
+
+V3.3 ENGINEERING DIGITAL TEST FORMS
+- Added equipment/service-specific digital test templates.
+- Transformer tests include voltage, insulation resistance, winding resistance, turns ratio and condition fields.
+- Switchgear tests include insulation resistance, contact resistance, phase results and mechanical operation.
+- Drive tests include input/output voltage/current, fault history and operational test.
+- Recloser tests include control voltage, trip/close, timing/curve and insulation fields.
+- Breaker tests/certifications include insulation, contact resistance, trip/close, timing and mechanical checks.
+- Installation/commissioning and breaker cleaning/rebuild templates included.
+- Test measurements are stored with the job record for future reports/certificates.
+- Production version should enforce required measurements based on company-approved procedures, support attachments/photos, electronic signatures, certificate generation and locked test records.

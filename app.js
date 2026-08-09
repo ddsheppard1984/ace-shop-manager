@@ -1006,22 +1006,25 @@ function openTestRecordBuilder(jobNumber=""){
  openModal("Test / Certification Record",`
  <div class="form-grid">
   <div class="field"><label>Job Number <span class="req">*</span></label><input id="tr_job" value="${esc(jobNumber)}"></div>
-  <div class="field"><label>Record Type</label><select id="tr_type"><option>Field Test</option><option>Transformer Test</option><option>Switchgear Test</option><option>Drive Test</option><option>Recloser Test</option><option>Breaker Test</option><option>Breaker Certification</option><option>Breaker Cleaning / Rebuild</option><option>Installation / Commissioning</option></select></div>
+  <div class="field"><label>Record Type</label><select id="tr_type" onchange="renderTestTemplateFields()">${Object.keys(TEST_TEMPLATES).map(x=>`<option>${esc(x)}</option>`).join("")}</select></div>
   <div class="field"><label>Test Date</label><input id="tr_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
   <div class="field"><label>Technician / Engineer</label><input id="tr_person"></div>
-  <div class="field"><label>Result</label><select id="tr_result"><option>Pass</option><option>Pass with Notes</option><option>Fail</option><option>Needs Repair</option><option>Pending</option></select></div>
-  <div class="field"><label>Test Standard / Procedure</label><input id="tr_standard" placeholder="Enter company standard later"></div>
+  <div class="field"><label>Overall Result</label><select id="tr_result"><option>Pass</option><option>Pass with Notes</option><option>Fail</option><option>Needs Repair</option><option>Pending</option></select></div>
+  <div class="field"><label>Test Standard / Procedure</label><input id="tr_standard" placeholder="Company standard/procedure"></div>
   <div class="field"><label>Equipment / Serial</label><input id="tr_equipment"></div>
-  <div class="field"><label>Summary / Results</label><input id="tr_summary"></div>
+  <div class="field"><label>Photos / Documents</label><input id="tr_attachment_note" placeholder="Attachment placeholder in prototype"></div>
  </div>
- <div class="notice">Production version can attach test sheets, meter readings, photographs, certificates and signed customer documents to this record.</div>
+ <div id="tr_template_fields"></div>
+ <div class="field"><label>Summary / Results</label><textarea id="tr_summary" rows="3" placeholder="Overall findings, deficiencies, recommendations"></textarea></div>
+ <div class="notice">The production version can attach photos, test sheets, meter files, certificates and customer signatures directly to this record.</div>
  <div class="form-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" onclick="saveTestRecord()">Save Record</button></div>`,()=>{});
+ renderTestTemplateFields();
 }
 function saveTestRecord(){
  ensureEngineeringData();
- const jobNumber=document.getElementById("tr_job").value.trim(),recordType=document.getElementById("tr_type").value,testDate=document.getElementById("tr_date").value,person=document.getElementById("tr_person").value.trim(),result=document.getElementById("tr_result").value,standard=document.getElementById("tr_standard").value.trim(),equipment=document.getElementById("tr_equipment").value.trim(),summary=document.getElementById("tr_summary").value.trim();
+ const jobNumber=document.getElementById("tr_job").value.trim(),recordType=document.getElementById("tr_type").value,testDate=document.getElementById("tr_date").value,person=document.getElementById("tr_person").value.trim(),result=document.getElementById("tr_result").value,standard=document.getElementById("tr_standard").value.trim(),equipment=document.getElementById("tr_equipment").value.trim(),summary=document.getElementById("tr_summary").value.trim(),attachmentNote=document.getElementById("tr_attachment_note").value.trim(),measurements=collectTestMeasurements();
  if(!jobNumber||!testDate){alert("Job number and test date are required.");return}
- db.testRecords.push({id:"TEST-"+(db.testRecords.length+1),jobNumber,recordType,testDate,person,result,standard,equipment,summary,createdAt:new Date().toISOString()});
+ db.testRecords.push({id:"TEST-"+(db.testRecords.length+1),jobNumber,recordType,testDate,person,result,standard,equipment,summary,measurements,attachmentNote,createdAt:new Date().toISOString()});
  logAudit("Added engineering test/certification record");save();closeModal();render();
 }
 

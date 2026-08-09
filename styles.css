@@ -88,3 +88,5 @@
 .engineering-highlight{border:2px solid #94a3b8;background:#f8fafc}
 
 .eng-grid{grid-template-columns:1fr 1.3fr 1.1fr 1.4fr 1fr 1fr 1fr}.eng-grid .small-btn{padding:5px 8px}
+
+.test-template-grid{margin-top:8px}.test-template-grid .field{min-width:0}
