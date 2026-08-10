@@ -216,7 +216,7 @@ async function renderEquipmentTestPanel(){
       <td>${esc(e.voltage||"—")}</td>
       <td>${esc(e.rpm||"—")}</td>
       <td><span class="badge green">Active</span></td>
-      <td><button type="button" class="secondary small equipment-edit-btn" data-equipment-id="${esc(e.id)}">Edit</button></td>
+      <td><button type="button" class="secondary small" onclick="window.editEquipmentTestFromButton(this)" data-equipment-id="${esc(e.id)}">Edit</button></td>
     </tr>`).join("") : '<tr><td colspan="12"><div class="empty-state">No equipment records found. Click “+ Add Equipment” to create one.</div></td></tr>';
     bindEquipmentTableActions();
   }catch(e){
@@ -2137,3 +2137,7 @@ render();
 
 
 (function(){const q=document.getElementById("equipmentTestSearchBox"),t=document.getElementById("equipmentTestTypeBox");if(q)q.addEventListener("input",()=>renderEquipmentTestPanel());if(t)t.addEventListener("change",()=>renderEquipmentTestPanel());})();
+
+window.editEquipmentTest=editEquipmentTest;
+window.viewEquipmentTest=viewEquipmentTest;
+window.openEquipmentTestForm=openEquipmentTestForm;
