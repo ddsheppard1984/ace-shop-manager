@@ -205,7 +205,7 @@ async function renderEquipmentTestPanel(){
     if(other)other.textContent=all.filter(e=>!["Motor","Transformer"].includes(e.type)).length;
 
     rowsEl.innerHTML=list.length ? list.map(e=>`<tr>
-      <td><button class="link-btn" onclick="viewEquipmentTest('${esc(e.id)}')">${esc(e.number)}</button></td>
+      <td><button type="button" class="link-btn equipment-view-btn" data-equipment-id="${esc(e.id)}">${esc(e.number)}</button></td>
       <td>${esc(e.type)}</td>
       <td>${esc(e.customer||"—")}</td>
       <td>${esc(e.job||"—")}</td>
@@ -216,12 +216,26 @@ async function renderEquipmentTestPanel(){
       <td>${esc(e.voltage||"—")}</td>
       <td>${esc(e.rpm||"—")}</td>
       <td><span class="badge green">Active</span></td>
-      <td><button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td>
+      <td><button type="button" class="secondary small equipment-edit-btn" data-equipment-id="${esc(e.id)}">Edit</button></td>
     </tr>`).join("") : '<tr><td colspan="12"><div class="empty-state">No equipment records found. Click “+ Add Equipment” to create one.</div></td></tr>';
+    bindEquipmentTableActions();
   }catch(e){
     rowsEl.innerHTML=`<tr><td colspan="12"><div class="action-alert">${esc(e.message||e)}</div></td></tr>`;
   }
 }
+
+function bindEquipmentTableActions(){
+  const tbody=document.getElementById("equipmentTestRows");
+  if(!tbody || tbody.dataset.bound==="1")return;
+  tbody.dataset.bound="1";
+  tbody.addEventListener("click",function(ev){
+    const edit=ev.target.closest(".equipment-edit-btn");
+    if(edit){ev.preventDefault();editEquipmentTest(edit.dataset.equipmentId);return;}
+    const view=ev.target.closest(".equipment-view-btn");
+    if(view){ev.preventDefault();viewEquipmentTest(view.dataset.equipmentId);return;}
+  });
+}
+
 function equipmentFormHtml(e){
   e=e||{};
   const customers=(db.customers||[]).map(c=>`<option value="${esc(c.name)}" ${c.name===e.customer?"selected":""}>${esc(c.name)}</option>`).join("");
@@ -258,7 +272,8 @@ function openEquipmentTestForm(){
   });
 }
 async function editEquipmentTest(id){
-  const e=(db.equipmentTest||[]).find(x=>String(x.id)===String(id));if(!e)return;
+  const e=(db.equipmentTest||[]).find(x=>String(x.id)===String(id));
+  if(!e){alert("Equipment record could not be found. Refresh the Equipment list and try again.");return;}
   openModal(`Edit ${esc(e.number)}`,equipmentFormHtml(e),async f=>{
     try{await updateEquipmentTestDb(id,f);closeModal();await renderEquipmentTestPanel()}
     catch(err){alert("Equipment was not updated in Supabase: "+(err.message||err))}
