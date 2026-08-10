@@ -245,6 +245,10 @@ function equipmentFormHtml(e){
     <div class="field"><label>AC / DC</label><select name="acdc"><option ${e.acdc==="AC"?"selected":""}>AC</option><option ${e.acdc==="DC"?"selected":""}>DC</option></select></div>
     <div class="field"><label>Condition</label><select name="condition"><option ${e.condition==="Good"?"selected":""}>Good</option><option ${e.condition==="Needs Inspection"?"selected":""}>Needs Inspection</option><option ${e.condition==="Damaged"?"selected":""}>Damaged</option><option ${e.condition==="Out of Service"?"selected":""}>Out of Service</option></select></div>
     <div class="field full"><label>Description / Notes</label><textarea name="description" rows="4">${esc(e.description||"")}</textarea></div>
+  </div>
+  <div class="form-actions">
+    <button class="secondary" type="button" onclick="closeModal()">Cancel</button>
+    <button class="primary" type="submit">${e.id?"Save Changes":"Save Equipment"}</button>
   </div>`;
 }
 function openEquipmentTestForm(){
