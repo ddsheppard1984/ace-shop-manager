@@ -265,19 +265,60 @@
       <div class="panel"><div id="deliveryTable"></div></div>
     </section>
   <section id="equipment-test" class="view">
-  <div id="equipmentTestPanel">
-    <div class="card">
-      <div class="page-head">
-        <div><h2>⚙️ Equipment — DATABASE TEST</h2><p class="muted">Equipment records stored in Supabase.</p></div>
-        <button class="primary" type="button" onclick="openEquipmentTestForm()">+ Add Equipment</button>
-      </div>
-      <div class="toolbar">
-        <input class="search-input" id="equipmentTestSearchBox" placeholder="Search equipment, serial, customer or job...">
-        <select id="equipmentTestTypeBox"><option value="">All types</option><option>Motor</option><option>Breaker</option><option>Transformer</option><option>Switchgear</option><option>Recloser</option><option>Generator</option><option>Pump</option><option>Other</option></select>
-        <button class="secondary" type="button" onclick="renderEquipmentTestPanel()">Load / Refresh Equipment</button>
-      </div>
-      <div class="table-wrap"><table><thead><tr><th>Equipment #</th><th>Type</th><th>Customer</th><th>Job</th><th>Manufacturer</th><th>Model</th><th>Serial #</th><th>Actions</th></tr></thead>
-      <tbody id="equipmentTestRows"><tr><td colspan="8"><div class="empty-state">Click “Load / Refresh Equipment” to load the database.</div></td></tr></tbody></table></div>
+  <div class="page-head">
+    <div>
+      <h1>⚙️ Equipment</h1>
+      <p class="muted">Equipment master records, specifications and service history.</p>
+    </div>
+    <div class="page-actions">
+      <button class="primary" type="button" onclick="openEquipmentTestForm()">+ Add Equipment</button>
+      <button class="secondary" type="button" onclick="renderEquipmentTestPanel()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total Equipment</div><div class="stat-value" id="equipmentCount">0</div></div>
+    <div class="stat-card"><div class="stat-label">Motors</div><div class="stat-value" id="equipmentMotorCount">0</div></div>
+    <div class="stat-card"><div class="stat-label">Transformers</div><div class="stat-value" id="equipmentTransformerCount">0</div></div>
+    <div class="stat-card"><div class="stat-label">Other Equipment</div><div class="stat-value" id="equipmentOtherCount">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <input class="search-input" id="equipmentTestSearchBox" placeholder="Search equipment #, serial, customer, job, manufacturer or model...">
+      <select id="equipmentTestTypeBox">
+        <option value="">All equipment types</option>
+        <option>Motor</option><option>Breaker</option><option>Transformer</option>
+        <option>Switchgear</option><option>Recloser</option><option>Generator</option>
+        <option>Pump</option><option>Other</option>
+      </select>
+      <button class="secondary" type="button" onclick="renderEquipmentTestPanel()">Load / Refresh</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table id="equipmentTable">
+        <thead>
+          <tr>
+            <th>Equipment #</th>
+            <th>Type</th>
+            <th>Customer</th>
+            <th>Job</th>
+            <th>Manufacturer</th>
+            <th>Model</th>
+            <th>Serial #</th>
+            <th>HP</th>
+            <th>Voltage</th>
+            <th>RPM</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="equipmentTestRows">
+          <tr><td colspan="12"><div class="empty-state">Click “Load / Refresh” to load equipment.</div></td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>

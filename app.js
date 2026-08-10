@@ -114,7 +114,7 @@ async function loadEquipmentFromSupabase(){
     rpm:x.rpm??"",
     frame:x.frame||"",
     acdc:x.ac_dc||"",
-    description:x.description||""
+    description:x.description||"",condition:x.condition||"Good"
   }));
   save();
 }
@@ -182,17 +182,44 @@ function equipmentDbRow(x){
     frame:x.frame||"",acdc:x.ac_dc||"",description:x.description||""};
 }
 async function renderEquipmentTestPanel(){
-  const root=document.getElementById("equipmentTestPanel"); if(!root)return;
   const rowsEl=document.getElementById("equipmentTestRows");
+  if(!rowsEl)return;
   const q=(document.getElementById("equipmentTestSearchBox")?.value||"").toLowerCase();
   const type=document.getElementById("equipmentTestTypeBox")?.value||"";
-  if(rowsEl) rowsEl.innerHTML='<tr><td colspan="8"><div class="empty-state">Loading equipment from Supabase...</div></td></tr>';
+  rowsEl.innerHTML='<tr><td colspan="12"><div class="empty-state">Loading equipment...</div></td></tr>';
   try{
     await loadEquipmentFromSupabase();
-    const list=(db.equipmentTest||[]).filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
-    if(rowsEl) rowsEl.innerHTML=list.length?list.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button> <button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td></tr>`).join(""):'<tr><td colspan="8"><div class="empty-state">No equipment records found.</div></td></tr>';
+    const all=db.equipmentTest||[];
+    const list=all.filter(e=>{
+      const text=[e.number,e.type,e.customer,e.job,e.manufacturer,e.model,e.serial,e.hp,e.voltage,e.rpm].join(" ").toLowerCase();
+      return (!type||e.type===type)&&(!q||text.includes(q));
+    });
+
+    const count=document.getElementById("equipmentCount");
+    const motors=document.getElementById("equipmentMotorCount");
+    const transformers=document.getElementById("equipmentTransformerCount");
+    const other=document.getElementById("equipmentOtherCount");
+    if(count)count.textContent=all.length;
+    if(motors)motors.textContent=all.filter(e=>e.type==="Motor").length;
+    if(transformers)transformers.textContent=all.filter(e=>e.type==="Transformer").length;
+    if(other)other.textContent=all.filter(e=>!["Motor","Transformer"].includes(e.type)).length;
+
+    rowsEl.innerHTML=list.length ? list.map(e=>`<tr>
+      <td><button class="link-btn" onclick="viewEquipmentTest('${esc(e.id)}')">${esc(e.number)}</button></td>
+      <td>${esc(e.type)}</td>
+      <td>${esc(e.customer||"—")}</td>
+      <td>${esc(e.job||"—")}</td>
+      <td>${esc(e.manufacturer||"—")}</td>
+      <td>${esc(e.model||"—")}</td>
+      <td>${esc(e.serial||"—")}</td>
+      <td>${esc(e.hp||"—")}</td>
+      <td>${esc(e.voltage||"—")}</td>
+      <td>${esc(e.rpm||"—")}</td>
+      <td><span class="badge green">Active</span></td>
+      <td><button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td>
+    </tr>`).join("") : '<tr><td colspan="12"><div class="empty-state">No equipment records found. Click “+ Add Equipment” to create one.</div></td></tr>';
   }catch(e){
-    if(rowsEl) rowsEl.innerHTML=`<tr><td colspan="8"><div class="action-alert">${esc(e.message||e)}</div></td></tr>`;
+    rowsEl.innerHTML=`<tr><td colspan="12"><div class="action-alert">${esc(e.message||e)}</div></td></tr>`;
   }
 }
 function equipmentFormHtml(e){
@@ -202,13 +229,13 @@ function equipmentFormHtml(e){
   const types=equipmentTestModule().types.map(t=>`<option value="${esc(t)}" ${t===e.type?"selected":""}>${esc(t)}</option>`).join("");
   return `<div class="form-grid">
     <div class="field"><label>Equipment #</label><input name="number" value="${esc(e.number||"")}" ${e.id?"readonly":""} placeholder="Auto-generated"></div>
-    <div class="field"><label>Type</label><select name="type">${types}</select></div>
+    <div class="field"><label>Equipment Type</label><select name="type">${types}</select></div>
     <div class="field"><label>Customer</label><select name="customer"><option value="">— Select —</option>${customers}</select></div>
-    <div class="field"><label>Job</label><select name="job"><option value="">— Select —</option>${jobs}</select></div>
+    <div class="field"><label>Job</label><select name="job"><option value="">— Not assigned —</option>${jobs}</select></div>
     <div class="field"><label>Manufacturer</label><input name="manufacturer" value="${esc(e.manufacturer||"")}"></div>
     <div class="field"><label>Model</label><input name="model" value="${esc(e.model||"")}"></div>
-    <div class="field"><label>Serial #</label><input name="serial" value="${esc(e.serial||"")}"></div>
-    <div class="field"><label>Horsepower</label><input name="hp" type="number" value="${esc(e.hp??"")}"></div>
+    <div class="field"><label>Serial Number</label><input name="serial" value="${esc(e.serial||"")}"></div>
+    <div class="field"><label>Horsepower</label><input name="hp" type="number" step="0.1" value="${esc(e.hp??"")}"></div>
     <div class="field"><label>Voltage</label><input name="voltage" value="${esc(e.voltage||"")}"></div>
     <div class="field"><label>Amperage</label><input name="amperage" value="${esc(e.amperage||"")}"></div>
     <div class="field"><label>Phase</label><input name="phase" value="${esc(e.phase||"")}"></div>
@@ -216,7 +243,8 @@ function equipmentFormHtml(e){
     <div class="field"><label>RPM</label><input name="rpm" value="${esc(e.rpm??"")}"></div>
     <div class="field"><label>Frame</label><input name="frame" value="${esc(e.frame||"")}"></div>
     <div class="field"><label>AC / DC</label><select name="acdc"><option ${e.acdc==="AC"?"selected":""}>AC</option><option ${e.acdc==="DC"?"selected":""}>DC</option></select></div>
-    <div class="field full"><label>Description</label><textarea name="description" rows="3">${esc(e.description||"")}</textarea></div>
+    <div class="field"><label>Condition</label><select name="condition"><option ${e.condition==="Good"?"selected":""}>Good</option><option ${e.condition==="Needs Inspection"?"selected":""}>Needs Inspection</option><option ${e.condition==="Damaged"?"selected":""}>Damaged</option><option ${e.condition==="Out of Service"?"selected":""}>Out of Service</option></select></div>
+    <div class="field full"><label>Description / Notes</label><textarea name="description" rows="4">${esc(e.description||"")}</textarea></div>
   </div>`;
 }
 function openEquipmentTestForm(){
@@ -239,7 +267,7 @@ function viewEquipmentTest(id){
     <div><strong>Job</strong><span>${esc(e.job||"—")}</span></div><div><strong>Manufacturer</strong><span>${esc(e.manufacturer||"—")}</span></div>
     <div><strong>Model</strong><span>${esc(e.model||"—")}</span></div><div><strong>Serial</strong><span>${esc(e.serial||"—")}</span></div>
     <div><strong>HP</strong><span>${esc(e.hp||"—")}</span></div><div><strong>Voltage</strong><span>${esc(e.voltage||"—")}</span></div>
-    <div><strong>Amperage</strong><span>${esc(e.amperage||"—")}</span></div><div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div>
+    <div><strong>Amperage</strong><span>${esc(e.amperage||"—")}</span></div><div><strong>RPM</strong><span>${esc(e.rpm||"—")}</span></div><div><strong>Condition</strong><span>${esc(e.condition||"Good")}</span></div>
   </div><div class="section-title">Description</div><div class="notes-box">${esc(e.description||"—")}</div>
   <div class="form-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
 }
