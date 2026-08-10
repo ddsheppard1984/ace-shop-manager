@@ -182,21 +182,18 @@ function equipmentDbRow(x){
     frame:x.frame||"",acdc:x.ac_dc||"",description:x.description||""};
 }
 async function renderEquipmentTestPanel(){
-  const root=document.getElementById("equipmentTestPanel");if(!root)return;
-  try{await loadEquipmentFromSupabase()}catch(e){
-    root.innerHTML=`<div class="card"><h2>⚙️ Equipment — TEST</h2><div class="action-alert">${esc(e.message||e)}</div><button class="primary" onclick="renderEquipmentTestPanel()">Retry Database</button></div>`;
-    return;
+  const root=document.getElementById("equipmentTestPanel"); if(!root)return;
+  const rowsEl=document.getElementById("equipmentTestRows");
+  const q=(document.getElementById("equipmentTestSearchBox")?.value||"").toLowerCase();
+  const type=document.getElementById("equipmentTestTypeBox")?.value||"";
+  if(rowsEl) rowsEl.innerHTML='<tr><td colspan="8"><div class="empty-state">Loading equipment from Supabase...</div></td></tr>';
+  try{
+    await loadEquipmentFromSupabase();
+    const list=(db.equipmentTest||[]).filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
+    if(rowsEl) rowsEl.innerHTML=list.length?list.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button> <button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td></tr>`).join(""):'<tr><td colspan="8"><div class="empty-state">No equipment records found.</div></td></tr>';
+  }catch(e){
+    if(rowsEl) rowsEl.innerHTML=`<tr><td colspan="8"><div class="action-alert">${esc(e.message||e)}</div></td></tr>`;
   }
-  const list=db.equipmentTest||[],m=equipmentTestModule(),q=(window.equipmentTestSearch||"").toLowerCase(),type=window.equipmentTestType||"";
-  const rows=list.filter(e=>(!type||e.type===type)&&(!q||JSON.stringify(e).toLowerCase().includes(q)));
-  root.innerHTML=`<div class="card">
-    <div class="page-head"><div><h2>⚙️ Equipment — DATABASE TEST</h2><p class="muted">This module now reads and writes the real Supabase equipment table.</p></div>
-    <button class="primary" onclick="openEquipmentTestForm()">+ Add Equipment</button></div>
-    <div class="toolbar"><input class="search-input" placeholder="Search equipment, serial, customer or job..." value="${esc(q)}" oninput="window.equipmentTestSearch=this.value;renderEquipmentTestPanel()">
-    <select onchange="window.equipmentTestType=this.value;renderEquipmentTestPanel()"><option value="">All types</option>${m.types.map(t=>`<option value="${esc(t)}" ${type===t?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
-    <div class="table-wrap"><table><thead><tr><th>Equipment #</th><th>Type</th><th>Customer</th><th>Job</th><th>Manufacturer</th><th>Model</th><th>Serial #</th><th></th></tr></thead><tbody>
-    ${rows.length?rows.map(e=>`<tr><td>${esc(e.number)}</td><td>${esc(e.type)}</td><td>${esc(e.customer||"")}</td><td>${esc(e.job||"")}</td><td>${esc(e.manufacturer||"")}</td><td>${esc(e.model||"")}</td><td>${esc(e.serial||"")}</td><td><button class="secondary small" onclick="viewEquipmentTest('${esc(e.id)}')">View</button> <button class="secondary small" onclick="editEquipmentTest('${esc(e.id)}')">Edit</button></td></tr>`).join(""):`<tr><td colspan="8"><div class="empty-state">No equipment records found.</div></td></tr>`}
-    </tbody></table></div></div>`;
 }
 function equipmentFormHtml(e){
   e=e||{};
@@ -2091,3 +2088,5 @@ document.getElementById("askAssistant")?.addEventListener("click",()=>{const q=d
 
 render();
 
+
+(function(){const q=document.getElementById("equipmentTestSearchBox"),t=document.getElementById("equipmentTestTypeBox");if(q)q.addEventListener("input",()=>renderEquipmentTestPanel());if(t)t.addEventListener("change",()=>renderEquipmentTestPanel());})();
