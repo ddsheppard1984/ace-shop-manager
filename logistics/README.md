@@ -22,7 +22,7 @@ Persistent volume `ace-logistics-data` contains the SQLite DB, SQLite WAL, priva
 ## Import safely
 - ACE: in original ACE Shop Manager, export a JSON backup of local data; log in as admin in ACE Logistics and import it in **Shop integration**. Import merges customers, jobs, and deliveries by stable source reference; it never deletes rows.
 - MotorTrack: export JSON with `records` or `shipments` array; each record should carry `id` or `slip_number` or `ticket` or `reference`. Mapped fields: `motor_description`/`description`/`asset`, `job_number`, `customer`, `serial_number`, pickup/delivery addresses, date, driver, notes. Import is repeat-safe.
-- For a live MotorTrack SQLite migration, first inspect its tables, back up the DB, export compatible JSON from a read-only snapshot, and verify row counts before cutover. No automatic live migration or production cutover is implied by the code alone.
+- For an existing MotorTrack SQLite install, first back up its database to a consistent **offline snapshot**, then run `python tools/motortrack_sqlite_export.py /path/to/snapshot.db --output /path/to/motortrack-import.json` and import that JSON. Review the detected table counts and mappings first. The source snapshot is opened read-only; live MotorTrack is never modified. No automatic production cutover is implied.
 
 ## Development & tests
 `python -m unittest discover -s tests -v` (stdlib only). Set `ACE_DATA_DIR` for local testing. Database remains isolated from MotorTrack.
