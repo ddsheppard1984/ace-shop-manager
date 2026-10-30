@@ -92,4 +92,15 @@ class APITest(unittest.TestCase):
         self.req('/api/import/ace','POST',{'data':{}},expect=403)
         self.req('/api/export',expect=403)
 
+    def test_05_eight_character_credentials(self):
+        self.login()
+        self.req('/api/users','POST',{'username':'eight-length','role':'driver','password':'short77'},expect=400)
+        self.req('/api/users','POST',{'username':'eight-length','role':'driver','password':'long8888'},expect=201)
+        self.req('/api/logout','POST',{})
+        self.req('/api/login','POST',{'username':'eight-length','password':'long8888'})
+        self.req('/api/change-password','POST',{'current_password':'long8888','new_password':'short77'},expect=400)
+        self.req('/api/change-password','POST',{'current_password':'long8888','new_password':'fresh888'})
+        self.req('/api/logout','POST',{})
+        self.req('/api/login','POST',{'username':'eight-length','password':'fresh888'})
+
 if __name__=='__main__':unittest.main()
