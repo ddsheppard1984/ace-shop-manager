@@ -458,8 +458,10 @@ class Handler(BaseHTTPRequestHandler):
                     if not ref:continue
                     ext='motortrack:'+ref
                     asset=clean(row.get('motor_description') or row.get('description') or row.get('asset') or 'Motor/equipment')
-                    fields=(ext,'MT-'+ref,clean(row.get('job_number')),clean(row.get('customer')),asset,clean(row.get('serial_number')),clean(row.get('pickup_address')),clean(row.get('delivery_address')),clean(row.get('date'),32),clean(row.get('driver')),clean(row.get('notes'),2000),utc(),utc())
-                    cur=c.execute('INSERT OR IGNORE INTO shipments(external_ref,reference,job_number,customer,asset,serial_number,pickup_address,delivery_address,scheduled_date,driver,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',fields)
+                    raw_stage=clean(row.get('stage') or row.get('status'),40)
+                    stage=raw_stage if raw_stage in STAGES else {'In Shop':'At Shop','Returned':'Delivered','Completed':'Delivered'}.get(raw_stage,'Scheduled')
+                    fields=(ext,'MT-'+ref,clean(row.get('job_number')),clean(row.get('customer')),asset,clean(row.get('serial_number')),clean(row.get('pickup_address')),clean(row.get('delivery_address')),clean(row.get('date'),32),clean(row.get('driver')),stage,clean(row.get('notes'),2000),utc(),utc())
+                    cur=c.execute('INSERT OR IGNORE INTO shipments(external_ref,reference,job_number,customer,asset,serial_number,pickup_address,delivery_address,scheduled_date,driver,stage,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',fields)
                     counts['imported']+=cur.rowcount;counts['skipped']+=int(cur.rowcount==0)
                 audit(c,'import-motortrack','records',actor,json.dumps(counts))
             return self.respond({'ok':True,**counts})
