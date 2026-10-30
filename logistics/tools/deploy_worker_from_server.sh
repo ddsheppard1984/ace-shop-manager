@@ -18,6 +18,6 @@ printf '[3/5] Cloning the feature branch to a NEW directory...\n'
 printf '[4/5] Validating private port binding, building and launching...\n'
 "${SSH[@]}" "cd \"$REMOTE_DIR/logistics\" && printf 'ACE_BIND_HOST=$TAILSCALE_IP\\n' > .env && chmod 600 .env && docker compose config -q && docker compose up -d --build"
 printf '[5/5] Waiting for health to report ready...\n'
-"${SSH[@]}" "for i in 1 2 3 4 5 6 7 8 9 10; do if curl -fsS --max-time 3 http://127.0.0.1:8086/healthz; then exit 0; fi; sleep 2; done; exit 1"
+"${SSH[@]}" "for i in 1 2 3 4 5 6 7 8 9 10; do if curl -fsS --max-time 3 http://$TAILSCALE_IP:8086/healthz; then exit 0; fi; sleep 2; done; exit 1"
 printf '\nACE Logistics is running on the worker (private Tailscale): http://%s:8086\n' "$TAILSCALE_IP"
 printf 'Retrieve the initial admin password privately via the worker data volume, then change it after login.\n'
