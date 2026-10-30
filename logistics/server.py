@@ -91,7 +91,7 @@ def initialize():
         ''')
         if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
             pw = os.environ.get('ACE_BOOTSTRAP_PASSWORD', '')
-            if len(pw) < 12:
+            if len(pw) < 8:
                 pw = secrets.token_urlsafe(24)
                 p = DATA / 'initial-admin-password'
                 p.write_text(pw + '\n')
@@ -336,7 +336,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond({'ok':True}, headers={'Set-Cookie':'ace_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
         if p=='/api/change-password':
             data=self.body()
-            if len(str(data.get('new_password',''))) < 12: raise ValueError('Password must be at least 12 characters')
+            if len(str(data.get('new_password',''))) < 8: raise ValueError('Password must be at least 8 characters')
             with db() as c:
                 row=c.execute('SELECT password_hash FROM users WHERE id=?',(u['id'],)).fetchone()
                 if not verify(str(data.get('current_password','')),row['password_hash']): return self.respond({'error':'Incorrect current password'},403)
@@ -348,7 +348,7 @@ class Handler(BaseHTTPRequestHandler):
             data=self.body(); name=clean(data.get('username'),80); role=clean(data.get('role'),20)
             if not re.fullmatch('[a-zA-Z0-9_.-]{3,80}',name):raise ValueError('Invalid username')
             if role not in ROLES:raise ValueError('Invalid role')
-            if len(str(data.get('password','')))<12:raise ValueError('Password must be at least 12 characters')
+            if len(str(data.get('password','')))<8:raise ValueError('Password must be at least 8 characters')
             with db() as c:
                 c.execute('INSERT INTO users(username,password_hash,role,created_at) VALUES(?,?,?,?)',(name,passhash(data['password']),role,utc()))
                 audit(c,'create-user',name,actor,'role='+role)
