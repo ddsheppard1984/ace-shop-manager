@@ -10,7 +10,7 @@ services:
       # Retrieve it privately from the persisted data volume.
       ACE_COOKIE_SECURE: "0"
     ports:
-      - "127.0.0.1:8086:8086"
+      - "${ACE_BIND_HOST:-127.0.0.1}:8086:8086"
     volumes:
       - ace-logistics-data:/app/data
     security_opt:
