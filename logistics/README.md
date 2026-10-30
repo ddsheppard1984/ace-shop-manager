@@ -13,7 +13,7 @@ Non-destructive integration of the original [ACE Shop Manager](https://github.co
 ## Runtime
 `docker compose up -d --build` (Docker Compose v2). Check `docker compose ps` and `curl -fsS http://127.0.0.1:8086/healthz`.
 
-The app binds **localhost only** by default. Expose through authenticated private Tailscale / reverse proxy, not an unauthenticated public port. For worker-only access, use a private SSH / Tailscale tunnel to `127.0.0.1:8086`. If a vetted HTTPS reverse proxy terminates TLS, set `ACE_COOKIE_SECURE=1`.
+The app binds **localhost only** by default. On a private worker, set `ACE_BIND_HOST` to its Tailscale IP in an untracked `.env` file before `docker compose up`. Never bind to `0.0.0.0` on a public port. Expose through private Tailscale / a vetted HTTPS proxy, not an unauthenticated public port. For worker-only access, use a private SSH / Tailscale tunnel to `127.0.0.1:8086`. If a vetted HTTPS reverse proxy terminates TLS, set `ACE_COOKIE_SECURE=1`.
 
 Initial admin is `admin` with a generated strong password saved to `/app/data/initial-admin-password` (read privately using Docker as an administrator). Alternatively set `ACE_BOOTSTRAP_PASSWORD` only on initial setup, using a secret injection mechanism instead of committing it. Change the password via **Shop integration → Change your password**. Provision separate accounts for drivers.
 
@@ -29,3 +29,6 @@ Persistent volume `ace-logistics-data` contains the SQLite DB, SQLite WAL, priva
 
 ## Current limits
 No automatic real-time bidirectional sync with ACE/MotorTrack; import is one-way snapshots until their respective schemas and migration are verified. No route optimization/GPS, invoice integration or offline photograph upload. Avoid publicly exposing the app until private networking and backups are verified.
+
+## Guarded Lenovo install
+The optional script `tools/deploy_worker_from_server.sh` runs from Squeak Server over pre-trusted, strict-host-key SSH. It clones this feature branch to a new worker directory, verifies Docker access, binds only the worker Tailscale interface and runs a local health check. **It never touches the original MotorTrack data or ACE Shop Manager.** Requires a logged-in authorized operator and SSH/Docker access; it does not bypass approvals.
