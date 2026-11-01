@@ -1,0 +1,26 @@
+services:
+  ace-logistics:
+    build: .
+    container_name: ace-logistics
+    restart: unless-stopped
+    environment:
+      ACE_DATA_DIR: /app/data
+      ACE_PORT: "8086"
+      # Keep empty to generate a strong admin password on initial startup.
+      # Retrieve it privately from the persisted data volume.
+      ACE_COOKIE_SECURE: "0"
+    ports:
+      - "${ACE_BIND_HOST:-127.0.0.1}:8086:8086"
+    volumes:
+      - ace-logistics-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=16m
+    pids_limit: 128
+    mem_limit: 256m
+volumes:
+  ace-logistics-data:
